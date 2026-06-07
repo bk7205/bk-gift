@@ -278,22 +278,27 @@ function parseApiText(text){
   }
 }
 
-// 응답 봉투에서 items 배열 추출 (data.go.kr 표준 구조 유연 대응)
+// 응답 봉투에서 items 배열 추출 (response → body → item)
 function extractItems(json){
   if(!json) return [];
-  // response.body.items.item
-  let node = json.response?.body?.items ?? json.body?.items ?? json.items ?? json;
-  let item = node?.item ?? node;
+  let item = json.response?.body?.item
+    ?? json.response?.body?.items?.item
+    ?? json.body?.item ?? json.item ?? json;
   if(Array.isArray(item)) return item;
   if(item && typeof item === "object") return [item];
-  // 배열 자체일 수도
   if(Array.isArray(json)) return json;
   return [];
 }
 
+// "090000" → "09:00" 형식으로 변환 (앞 2자리:다음 2자리)
+function fmtTime(v){
+  const s = String(v ?? "").trim().replace(/[^0-9]/g,"");
+  if(s.length < 4) return s ? String(v).trim() : "";
+  return `${s.slice(0,2)}:${s.slice(2,4)}`;
+}
 // 운영 시작~종료 시각을 "HH:MM~HH:MM" 형태로 결합
 function joinHours(open, close){
-  const o = String(open ?? "").trim(), c = String(close ?? "").trim();
+  const o = fmtTime(open), c = fmtTime(close);
   if(!o && !c) return "";
   return `${o||"-"}~${c||"-"}`;
 }
@@ -302,26 +307,26 @@ function joinHours(open, close){
 function normLib(raw){
   return {
     raw,
-    name:    pick(raw, ["lbrry_nm","lbrryNm","도서관명","name"]),
-    type:    pick(raw, ["lbrry_se_nm","lbrry_ty_nm","lbrryTyNm","도서관유형","type"]),
-    ctprvn:  pick(raw, ["ctprvn_nm","ctprvnNm","시도명"]),
-    signgu:  pick(raw, ["signgu_nm","signguNm","시군구명"]),
-    addr:    pick(raw, ["rdnmadr","주소","adres","address","addr"]),
-    lat:     pick(raw, ["latitude","lat","위도"]),
-    lng:     pick(raw, ["longitude","lng","경도"]),
-    tel:     pick(raw, ["tel_no","telNo","전화번호","tel"]),
-    homepage:pick(raw, ["hmpg_addr","hmpgAddr","홈페이지"]),
+    name:    pick(raw, ["pblibNm","도서관명","name"]),
+    type:    pick(raw, ["pblibSeNm","pblibTyNm","도서관유형","type"]),
+    ctprvn:  pick(raw, ["ctpvNm","시도명"]),
+    signgu:  pick(raw, ["sggNm","시군구명"]),
+    addr:    pick(raw, ["pblibRoadNmAddr","도로명주소","주소","addr"]),
+    lat:     pick(raw, ["lat","위도"]),
+    lng:     pick(raw, ["lot","경도"]),
+    tel:     pick(raw, ["pblibTelno","전화번호","tel"]),
+    homepage:pick(raw, ["siteUrlAddr","홈페이지"]),
     weekday: joinHours(
-      pick(raw, ["weekday_oper_open_hhmm","weekdayOperOpenHhmm"]),
-      pick(raw, ["weekday_oper_close_hhmm","weekdayOperCloseHhmm"])),
+      pick(raw, ["wkdyOperBgngTm"]),
+      pick(raw, ["wkdyOperEndTm"])),
     sat: joinHours(
-      pick(raw, ["sat_oper_open_hhmm","satOperOpenHhmm"]),
-      pick(raw, ["sat_oper_close_hhmm","satOperCloseHhmm"])),
+      pick(raw, ["wkndOperBgngTm"]),
+      pick(raw, ["wkndOperEndTm"])),
     holiday: joinHours(
-      pick(raw, ["holiday_oper_open_hhmm","holidayOperOpenHhmm"]),
-      pick(raw, ["holiday_oper_close_hhmm","holidayOperCloseHhmm"])),
-    closed:  pick(raw, ["closeday","closeDay","휴관일","closeDate"]),
-    code:    pick(raw, ["lbrry_cd","lbrryCd","도서관코드","code","id"]),
+      pick(raw, ["lhldyOperBgngTm"]),
+      pick(raw, ["lhldyOperEndTm"])),
+    closed:  pick(raw, ["clsrInfoExpIn","휴관일"]),
+    code:    pick(raw, ["pblibId","lbrryCd","code","id"]),
   };
 }
 
@@ -329,7 +334,7 @@ function normLib(raw){
 function hoursLine(lib){
   const parts = [];
   if(lib.weekday) parts.push(`평일 ${lib.weekday}`);
-  if(lib.sat) parts.push(`토 ${lib.sat}`);
+  if(lib.sat) parts.push(`주말 ${lib.sat}`);
   if(lib.holiday) parts.push(`공휴일 ${lib.holiday}`);
   return parts.join(" · ") || "정보 없음";
 }
