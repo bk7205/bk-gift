@@ -251,9 +251,9 @@ function pick(obj, keys){
    - 나머지 파라미터만 안전하게 인코딩                                   */
 async function apiFetch(endpoint, params){
   const rawUrl = `${API_BASE}${endpoint}?serviceKey=${SERVICE_KEY}`
-    + `&pageNo=1&numOfRows=${params.numOfRows || 10}&type=json`
+    + `&pageNo=${params.pageNo || 1}&numOfRows=${params.numOfRows || 10}&type=json`
     + Object.entries(params)
-        .filter(([k])=>!["numOfRows"].includes(k))
+        .filter(([k])=>!["numOfRows","pageNo"].includes(k))
         .map(([k,v])=>`&${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("");
 
   const res = await fetch(rawUrl, {
@@ -288,6 +288,14 @@ function extractItems(json){
   if(item && typeof item === "object") return [item];
   if(Array.isArray(json)) return json;
   return [];
+}
+
+// 응답에서 전체 건수(totalCount) 추출
+function extractTotalCount(json){
+  const t = json?.response?.body?.totalCount
+    ?? json?.body?.totalCount ?? json?.totalCount;
+  const n = Number(t);
+  return isNaN(n) ? 0 : n;
 }
 
 // "090000" → "09:00" 형식으로 변환 (앞 2자리:다음 2자리)
@@ -365,20 +373,44 @@ async function doSearch(){
   const box = $("#searchResult");
   if(!sido){ toast("시도를 선택하세요"); return; }
 
-  box.innerHTML = `<div class="loading"><span class="spin"></span>도서관 검색 중…</div>`;
+  const PAGE_SIZE = 100;   // 페이지당 건수
+  const MAX_ITEMS = 500;   // 최대 수집 건수 제한
+
+  box.innerHTML = `<div class="loading"><span class="spin"></span>전체 데이터 불러오는 중…</div>`;
   try{
-    // API가 sido 파라미터 필터링을 지원하지 않으므로 넉넉히 받아와 프론트에서 필터링
-    const json = await apiFetch("/info_v2", { numOfRows: 100 });
+    // 1) 첫 페이지 호출 → totalCount 확인
+    const first = await apiFetch("/info_v2", { pageNo: 1, numOfRows: PAGE_SIZE });
+    console.log("[info_v2] 1페이지 응답:", first);
 
-    // ── 실제 응답 구조 확인용 로그 ──
-    console.log("[info_v2] 원본 응답:", json);
-    const rawItems = extractItems(json);
-    console.log("[info_v2] items 개수:", rawItems.length, "첫 항목:", rawItems[0]);
+    const totalCount = extractTotalCount(first);
+    // 2) 전체 페이지 수 계산 (최대 MAX_ITEMS건 제한)
+    const cappedTotal = Math.min(totalCount || PAGE_SIZE, MAX_ITEMS);
+    const totalPages = Math.max(1, Math.ceil(cappedTotal / PAGE_SIZE));
+    console.log(`[info_v2] totalCount=${totalCount}, 수집 대상=${cappedTotal}, 페이지=${totalPages}`);
 
-    const items = rawItems.map(normLib);
-    console.log("[info_v2] 정규화 결과:", items);
+    let allRaw = extractItems(first);
+    box.innerHTML = `<div class="loading"><span class="spin"></span>전체 데이터 불러오는 중… (1/${totalPages}페이지)</div>`;
 
-    // 프론트 필터링 — 시도(ctpvNm) + 시군구(sggNm)
+    // 3) 나머지 페이지 병렬 호출 (실패한 페이지는 스킵)
+    if(totalPages > 1){
+      const pageNos = [];
+      for(let p=2; p<=totalPages; p++) pageNos.push(p);
+
+      const results = await Promise.all(pageNos.map(p=>
+        apiFetch("/info_v2", { pageNo: p, numOfRows: PAGE_SIZE })
+          .then(j=>{
+            box.innerHTML = `<div class="loading"><span class="spin"></span>전체 데이터 불러오는 중… (${p}/${totalPages}페이지)</div>`;
+            return extractItems(j);
+          })
+          .catch(err=>{ console.warn(`[info_v2] ${p}페이지 실패, 스킵:`, err.message); return []; })
+      ));
+      results.forEach(arr=> allRaw = allRaw.concat(arr));
+    }
+
+    console.log("[info_v2] 수집 총 건수:", allRaw.length);
+    const items = allRaw.map(normLib);
+
+    // 4) 시도(ctpvNm) + 시군구(sggNm) 필터링
     const filtered = items.filter(l=>{
       const sidoMatch = (l.ctprvn||"").includes(sido)
         || (l.ctprvn||"").includes(sidoFull(sido));
@@ -386,7 +418,7 @@ async function doSearch(){
       return sidoMatch && sgMatch;
     });
 
-    // 결과 없으면 안내 메시지
+    // 5) 결과 없으면 안내 메시지
     if(filtered.length === 0){
       box.innerHTML = `<div class="empty"><span class="ic">📭</span>
         「${esc(sido)}${sigungu?" "+esc(sigungu):""}」 해당 지역 도서관이 없습니다.<br>
@@ -395,7 +427,7 @@ async function doSearch(){
       return;
     }
 
-    renderSearch(filtered, "", json);
+    renderSearch(filtered, "", first);
   }catch(e){
     box.innerHTML = `<div class="err">❌ 검색 실패<br>
       <span class="dim">${esc(e.message)}</span><br><br>
