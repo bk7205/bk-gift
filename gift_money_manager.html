@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#6c5ce7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="경조사">
+<title>경조사 축의금 관리</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --text:#1f2430; --text-sub:#6b7280; --line:#e5e7eb;
+    --primary:#4f46e5; --primary-soft:#eef2ff;
+    --in:#059669; --in-soft:#ecfdf5; --out:#dc2626; --out-soft:#fef2f2; --warn:#d97706;
+    --shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+    --shadow-lg:0 10px 30px rgba(16,24,40,.12); --radius:16px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:84px;
+  }
+  header{position:sticky;top:0;z-index:50;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:18px 18px 16px;box-shadow:var(--shadow);}
+  header h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;}
+  header .sub{font-size:.78rem;opacity:.85;margin-top:2px;display:flex;align-items:center;gap:6px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:#fbbf24;display:inline-block;transition:.3s;}
+  .dot.on{background:#34d399;} .dot.off{background:#f87171;}
+  .me-chip{margin-left:auto;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:20px;font-size:.74rem;cursor:pointer;white-space:nowrap;}
+  .me-chip:hover{background:rgba(255,255,255,.28);}
+  .me-chip b{font-weight:700;}
+  .wrap{max-width:680px;margin:0 auto;}
+  main{max-width:680px;margin:0 auto;padding:16px 14px 0;}
+
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;justify-content:center;padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+  nav .wrap{display:flex;width:100%;}
+  nav button{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;color:var(--text-sub);font-size:.68rem;font-weight:600;border-radius:12px;transition:.15s;}
+  nav button .ic{font-size:1.25rem;line-height:1;}
+  nav button.active{color:var(--primary);}
+
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px;}
+  .card h2{font-size:.95rem;margin:0 0 12px;font-weight:700;display:flex;align-items:center;gap:6px;}
+  .sort-sel{margin-left:auto;font-size:.68rem;font-weight:600;padding:2px 5px;border:1px solid var(--line);border-radius:6px;color:var(--text);background:#fff;width:auto;}
+  .muted{color:var(--text-sub);}
+
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .stat{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;}
+  .stat .label{font-size:.74rem;color:var(--text-sub);font-weight:600;}
+  .stat .value{font-size:1.25rem;font-weight:800;margin-top:4px;letter-spacing:-.5px;}
+  .stat.in .value{color:var(--in);} .stat.out .value{color:var(--out);}
+  .stat.net{grid-column:1/3;} .stat.net .value{font-size:1.4rem;}
+  .stat .cnt{font-size:.7rem;color:var(--text-sub);margin-top:2px;}
+  .eye-btn{background:none;border:none;cursor:pointer;font-size:.95rem;padding:0 2px;line-height:1;vertical-align:middle;opacity:.75;}
+  .eye-btn:hover{opacity:1;}
+  .pos{color:var(--in)!important;} .neg{color:var(--out)!important;}
+
+  .field{margin-bottom:11px;}
+  .field label{display:block;font-size:.78rem;font-weight:600;color:var(--text-sub);margin-bottom:5px;}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;font-size:.95rem;font-family:inherit;background:#fff;color:var(--text);transition:.15s;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);}
+  .row{display:flex;gap:10px;} .row .field{flex:1;}
+  .rel-etc{margin-top:6px;}
+  .kk-rel-sel{min-width:74px;}
+  .kk-rel-etc{margin-top:4px;width:92px;}
+  .amount-quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
+  .amount-quick button{background:var(--primary-soft);color:var(--primary);border:none;border-radius:20px;padding:6px 12px;font-size:.78rem;font-weight:700;cursor:pointer;}
+  .btn{width:100%;padding:13px;border:none;border-radius:12px;font-size:.95rem;font-weight:700;cursor:pointer;transition:.15s;color:#fff;}
+  .btn:active{transform:scale(.98);} .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary{background:var(--primary);} .btn-in{background:var(--in);} .btn-out{background:var(--out);}
+  .btn-ghost{background:#fff;color:var(--text);border:1px solid var(--line);}
+  .btn-sm{padding:9px;font-size:.85rem;}
+
+  .filterbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .filterbar input{flex:1 1 100%;} .filterbar select{flex:1 1 calc(50% - 4px);max-width:none;}
+
+  .list{display:flex;flex-direction:column;gap:9px;}
+  .item{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;display:flex;align-items:center;gap:12px;}
+  .item .avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;background:var(--primary-soft);color:var(--primary);}
+  .item.in .avatar{background:var(--in-soft);color:var(--in);} .item.out .avatar{background:var(--out-soft);color:var(--out);}
+  .item .info{flex:1;min-width:0;}
+  .item .name{font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .item .meta{font-size:.74rem;color:var(--text-sub);margin-top:2px;}
+  .item .right{text-align:right;flex-shrink:0;}
+  .item .amt{font-weight:800;font-size:1rem;letter-spacing:-.3px;}
+  .item.in .amt{color:var(--in);} .item.out .amt{color:var(--out);}
+  .item .del{background:none;border:none;color:#cbd0d8;font-size:1.1rem;cursor:pointer;padding:4px;margin-left:2px;}
+  .item .del:hover{color:var(--out);}
+  .item .edit{background:none;border:none;font-size:1rem;cursor:pointer;padding:4px;margin-left:4px;opacity:.65;}
+  .item .edit:hover{opacity:1;}
+
+  /* 수정 모달 */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,18,30,.5);z-index:100;display:none;align-items:flex-end;justify-content:center;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:680px;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto;animation:up .25s ease;}
+  @keyframes up{from{transform:translateY(40px);opacity:.6;}to{transform:translateY(0);opacity:1;}}
+  .modal h3{margin:0 0 14px;font-size:1.05rem;display:flex;align-items:center;gap:6px;}
+  @media(min-width:680px){.modal-bg{align-items:center;}.modal{border-radius:20px;}}
+  .tag{font-size:.66rem;font-weight:700;padding:2px 7px;border-radius:6px;background:#f1f2f4;color:var(--text-sub);}
+  .by{color:var(--primary);font-weight:600;}
+
+  /* 대시보드 최근 내역 카드 */
+  .rec-item{background:var(--card);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
+  .rec-main{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
+  .rec-name{flex:1;min-width:0;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .rec-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .rec-amt{font-weight:800;font-size:1rem;letter-spacing:-.3px;}
+  .rec-amt.in{color:var(--in);} .rec-amt.out{color:var(--out);}
+  .rec-edit,.rec-del{background:none;border:none;cursor:pointer;font-size:.9rem;padding:2px;line-height:1;opacity:.7;}
+  .rec-edit:hover,.rec-del:hover{opacity:1;}
+  .rec-item .chev{color:var(--text-sub);transition:.2s;font-size:1.1rem;}
+  .rec-item.open .chev{transform:rotate(90deg);}
+  .rec-detail{display:none;padding:8px 14px 12px;border-top:1px solid var(--line);}
+  .rec-item.open .rec-detail{display:block;}
+  .rd-line{display:flex;justify-content:space-between;gap:10px;font-size:.8rem;padding:6px 0;border-bottom:1px dashed var(--line);}
+  .rd-line:last-child{border-bottom:none;}
+  .rd-k{color:var(--text-sub);flex-shrink:0;}
+  .rd-v{color:var(--text);font-weight:600;text-align:right;word-break:break-all;}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--text-sub);}
+  .empty .em{font-size:2.4rem;margin-bottom:8px;}
+
+  .repay-card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px;margin-bottom:10px;}
+  .repay-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .repay-rec{background:var(--in-soft);border-radius:10px;padding:8px 11px;margin-top:10px;font-size:.82rem;}
+  .repay-rec b{color:var(--in);font-size:1rem;}
+  .badge-done{background:var(--in-soft);color:var(--in);font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:8px;}
+  .badge-wait{background:#fff7ed;color:var(--warn);font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:8px;}
+  .ratio-box{display:flex;align-items:center;gap:10px;margin-top:8px;}
+  .ratio-box input[type=range]{flex:1;accent-color:var(--primary);}
+  .ratio-val{font-weight:800;color:var(--primary);min-width:48px;text-align:right;}
+
+  .person{border-bottom:1px solid var(--line);padding:10px 0;}
+  .person:last-child{border-bottom:none;}
+  .person .ptop{display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .person .pname{font-weight:700;}
+  .person .pbal{font-size:.82rem;font-weight:700;}
+  .person .pdetail{display:none;margin-top:8px;padding-left:6px;border-left:2px solid var(--line);}
+  .person.open .pdetail{display:block;}
+  .person .pline{font-size:.78rem;color:var(--text-sub);padding:3px 0;display:flex;justify-content:space-between;gap:8px;}
+  .person .pline-rec{align-items:center;padding:5px 0;}
+  .person .pl-info{flex:1;min-width:0;}
+  .person .pl-right{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+  .person .pl-edit,.person .pl-del{background:none;border:none;cursor:pointer;font-size:.9rem;padding:2px;line-height:1;opacity:.7;}
+  .person .pl-edit:hover,.person .pl-del:hover{opacity:1;}
+  /* 인물별 히스토리 내역 행 — 한 줄 레이아웃 */
+  .ph-rec{border-bottom:1px solid var(--line);}
+  .ph-rec:last-child{border-bottom:none;}
+  .ph-main{padding:7px 0;cursor:pointer;}
+  .ph-row{display:flex;align-items:center;gap:4px;overflow:hidden;}
+  .ph-date{font-size:.64rem;color:var(--text-sub);white-space:nowrap;flex-shrink:0;}
+  .ph-sep{font-size:.6rem;color:#d1d5db;flex-shrink:0;margin:0 1px;}
+  .ph-name{font-weight:700;font-size:.86rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:4.8rem;flex-shrink:1;}
+  .ph-rel{font-size:.62rem;color:var(--text-sub);white-space:nowrap;flex-shrink:0;background:var(--bg);padding:1px 4px;border-radius:4px;}
+  .ph-row .tag{flex-shrink:0;font-size:.6rem!important;padding:1px 5px!important;border-radius:4px!important;}
+  .ph-amt{margin-left:auto;font-weight:800;font-size:.88rem;white-space:nowrap;flex-shrink:0;}
+  .ph-amt.in{color:var(--in);} .ph-amt.out{color:var(--out);}
+  .ph-rec .chev{color:var(--text-sub);transition:.2s;font-size:.9rem;flex-shrink:0;margin-left:2px;}
+  .ph-rec.open .chev{transform:rotate(90deg);}
+  .ph-detail{display:none;padding:5px 0 9px 8px;margin:0 0 4px 2px;border-left:2px solid var(--line);}
+  .ph-rec.open .ph-detail{display:block;}
+  .ph-detail-act{display:flex;gap:8px;margin-top:8px;}
+  .ph-btn{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px;font-size:.8rem;font-weight:700;cursor:pointer;color:var(--text-sub);}
+  .ph-btn.del{color:var(--out);border-color:#fecaca;}
+  .ph-btn:active{transform:scale(.98);}
+  .chev{transition:.2s;color:var(--text-sub);} .person.open .chev{transform:rotate(90deg);}
+
+  .hidden{display:none!important;}
+
+  /* PWA: 오프라인 / 설치 배너 */
+  .offline-overlay{position:fixed;inset:0;z-index:600;background:rgba(108,92,231,.97);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;}
+  .offline-overlay .muted{color:rgba(255,255,255,.85);}
+  .pwa-banner{position:fixed;left:8px;right:8px;bottom:84px;z-index:60;max-width:664px;margin:0 auto;background:#1f2430;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:10px;font-size:.85rem;font-weight:600;}
+  .pwa-banner-btns{display:flex;gap:8px;flex-wrap:wrap;}
+  .pwa-banner-btns button{flex:1 1 auto;border:none;border-radius:9px;padding:9px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+  #pwa-install-btn{background:#6c5ce7;color:#fff;}
+  #pwa-guide-btn{background:rgba(255,255,255,.16);color:#fff;}
+  #pwa-dismiss-btn{background:rgba(255,255,255,.16);color:#cbd5e1;}
+  .pwa-guide b{display:block;margin-top:12px;color:var(--primary);}
+  .pwa-guide p{margin:5px 0 0;font-size:.86rem;color:var(--text-sub);line-height:1.65;}
+  .pwa-guide p b{display:inline;color:var(--text);}
+
+  /* 로그인 / 회원가입 화면 */
+  .auth-screen{position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#4f46e5,#6366f1);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+  .auth-box{background:#fff;border-radius:20px;box-shadow:var(--shadow-lg);padding:28px 22px;width:100%;max-width:360px;}
+  .auth-logo{font-size:2.6rem;text-align:center;line-height:1;}
+  .auth-title{text-align:center;margin:8px 0 22px;font-size:1.15rem;font-weight:800;letter-spacing:-.3px;}
+  .auth-box .btn{margin-top:8px;}
+  .auth-switch{text-align:center;font-size:.83rem;color:var(--text-sub);margin:16px 0 0;}
+  .auth-switch a{color:var(--primary);font-weight:700;cursor:pointer;text-decoration:underline;}
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:44px;}
+  .pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.05rem;padding:6px;line-height:1;opacity:.7;}
+  .pw-eye:hover{opacity:1;}
+  .remember-row{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--text-sub);font-weight:600;cursor:pointer;margin:2px 0 6px;}
+  .remember-row input{width:18px;height:18px;flex-shrink:0;}
+  .auth-err{color:var(--out);font-size:.8rem;font-weight:600;text-align:center;margin-top:12px;min-height:18px;}
+  .find-result{margin-top:12px;}
+  .find-ok{background:var(--in-soft);color:var(--in);border-radius:12px;padding:14px;font-size:.9rem;font-weight:700;text-align:center;line-height:1.6;}
+  .find-ok b{font-size:1.5rem;letter-spacing:3px;}
+  .find-fail{background:var(--out-soft);color:var(--out);border-radius:12px;padding:14px;font-size:.85rem;font-weight:600;text-align:center;line-height:1.6;}
+  .find-ok .muted,.find-fail .muted{font-weight:400;font-size:.74rem;}
+
+  /* 연락처 관리 */
+  .contact-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .contact-item:last-of-type{border-bottom:none;}
+  .ci-info{min-width:0;}
+  .ci-phone{font-size:.74rem;color:var(--text-sub);margin-top:2px;}
+  .ci-actions{display:flex;gap:6px;flex-shrink:0;}
+  .ci-actions button{background:none;border:none;cursor:pointer;font-size:.95rem;padding:4px;opacity:.75;}
+  .ci-actions button:hover{opacity:1;}
+  #c-csv-btn,#c-vcf-btn{flex:1 1 auto;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 10px;font-size:.78rem;font-weight:700;cursor:pointer;color:var(--text-sub);white-space:nowrap;}
+  .match-badge{font-size:.64rem;font-weight:800;padding:1px 6px;border-radius:8px;background:var(--in-soft);color:var(--in);white-space:nowrap;}
+
+  /* 관리자 패널 */
+  .admin-user{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .admin-user:last-of-type{border-bottom:none;}
+  .admin-actions{display:flex;gap:6px;flex-shrink:0;}
+  .admin-actions button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-size:.74rem;font-weight:700;cursor:pointer;color:var(--text-sub);}
+  .admin-actions button.danger{color:var(--out);border-color:#fecaca;}
+  .section-title{font-size:.8rem;font-weight:700;color:var(--text-sub);margin:18px 4px 8px;text-transform:uppercase;letter-spacing:.5px;}
+  .toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:#1f2430;color:#fff;padding:11px 18px;border-radius:30px;font-size:.85rem;font-weight:600;z-index:200;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:.25s;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+  .seg{display:flex;background:#f1f2f4;border-radius:11px;padding:3px;margin-bottom:12px;}
+  .seg button{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-weight:700;font-size:.85rem;color:var(--text-sub);cursor:pointer;}
+  .seg button.on{background:#fff;color:var(--text);box-shadow:var(--shadow);}
+  /* 카카오뱅크 가져오기 미리보기 */
+  .kk-summary{display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;font-size:.82rem;gap:8px;flex-wrap:wrap;}
+  .kk-summary label{cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  /* 다중 파일 드롭존 + 파일 목록 */
+  .kk-drop{margin-top:10px;border:2px dashed var(--line);border-radius:14px;padding:18px 14px;text-align:center;transition:.15s;background:#fafafa;}
+  .kk-drop.drag{border-color:var(--primary);background:var(--primary-soft);}
+  .kk-drop-ic{font-size:1.8rem;line-height:1;}
+  .kk-drop-txt{font-size:.8rem;color:var(--text-sub);margin-top:6px;line-height:1.5;}
+  .kk-files{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+  .kk-file{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 11px;}
+  .kk-file-name{font-size:.8rem;font-weight:600;word-break:break-all;}
+  .kk-file-x{background:none;border:none;color:#cbd0d8;font-size:1rem;cursor:pointer;padding:2px 4px;flex-shrink:0;}
+  .kk-file-x:hover{color:var(--out);}
+
+  /* 제외 이름 등록 */
+  .kk-exclude{flex:1 1 100%;margin:2px 0;padding:11px 12px;background:#fafafa;border:1px solid var(--line);border-radius:12px;}
+  .kk-ex-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .kk-ex-top input[type=text]{flex:1 1 60%;font-size:.82rem;}
+  .kk-ex-top select{flex:1 1 100%;font-size:.82rem;}
+  #kk-ex-btn{flex:0 0 auto;background:var(--primary);color:#fff;border:none;border-radius:9px;padding:10px 16px;font-size:.82rem;font-weight:700;cursor:pointer;}
+  #kk-ex-btn:active{transform:scale(.97);}
+  .kk-ex-actions{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;}
+  .kk-ex-actions button{flex:1 1 auto;border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:.76rem;font-weight:700;cursor:pointer;white-space:nowrap;background:#fff;color:var(--text-sub);}
+  #kk-auto-btn{background:var(--warn);color:#fff;border-color:var(--warn);}
+  #kk-auto-btn:active{transform:scale(.97);}
+  #kk-hide-btn.on{background:var(--primary-soft);color:var(--primary);border-color:var(--primary);}
+  #kk-fuzzy-btn.on{background:var(--in-soft);color:var(--in);border-color:var(--in);}
+  .kk-ex-match{font-size:.76rem;color:var(--text-sub);margin-top:7px;line-height:1.5;word-break:break-all;}
+  .kk-ex-match b{color:var(--warn);}
+  .ex-cnt{background:var(--warn);color:#fff;font-size:.64rem;font-weight:800;padding:1px 6px;border-radius:8px;}
+  .kk-ex-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+  /* 금액 기준 자동 제외 */
+  .kk-amt-ex{flex:1 1 100%;margin:2px 0;padding:11px 12px;background:#fafafa;border:1px solid var(--line);border-radius:12px;}
+  .kk-amt-summary{font-size:.8rem;font-weight:600;line-height:1.5;margin-bottom:10px;}
+  .kk-amt-summary b{color:var(--in);}
+  .kk-amt-ex .kk-ex-top input{flex:1 1 60%;font-size:.82rem;}
+  #kk-amt-exc-btn{flex:0 0 auto;background:var(--primary);color:#fff;border:none;border-radius:9px;padding:10px 16px;font-size:.82rem;font-weight:700;cursor:pointer;}
+  #kk-amt-exc-btn:active{transform:scale(.97);}
+  /* 입금 자동 제외 토글 스위치 */
+  .kk-toggle-row{flex:1 1 100%;display:flex;justify-content:space-between;align-items:center;gap:10px;margin:2px 0;padding:11px 12px;background:#fafafa;border:1px solid var(--line);border-radius:12px;font-size:.84rem;font-weight:600;}
+  .switch{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .slider{position:absolute;inset:0;background:#cbd5e1;border-radius:26px;transition:.2s;cursor:pointer;}
+  .switch .slider::before{content:"";position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+  .switch input:checked + .slider{background:var(--in);}
+  .switch input:checked + .slider::before{transform:translateX(20px);}
+  .ex-badge{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);color:var(--text);font-size:.74rem;font-weight:600;padding:4px 9px;border-radius:16px;}
+  .ex-badge .x{cursor:pointer;color:#cbd0d8;font-weight:700;}
+  .ex-badge .x:hover{color:var(--out);}
+  .kk-ex-info{font-size:.76rem;color:var(--warn);font-weight:600;margin-top:8px;}
+
+  .kk-filter{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 8px;align-items:center;}
+  .kk-filter input[type=search]{flex:1 1 100%;}
+  .kk-filter select{flex:1 1 auto;font-size:.82rem;}
+  .kk-seg{margin:0!important;flex:1 1 100%;}
+  .kk-count{flex:1 1 100%;font-size:.78rem;color:var(--text-sub);font-weight:600;}
+  .kk-count b{color:var(--primary);}
+  .kk-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;}
+  .kk-table{border-collapse:collapse;width:100%;font-size:.78rem;min-width:580px;}
+  .kk-table th,.kk-table td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;white-space:nowrap;}
+  .kk-table th{color:var(--text-sub);font-weight:700;background:#fafafa;}
+  .kk-table tr:last-child td{border-bottom:none;}
+  .kk-table select,.kk-table input[type=text]{padding:6px 8px;font-size:.78rem;border-radius:8px;}
+  .kk-table input[type=checkbox]{width:18px;height:18px;}
+  .kk-table .amt-in{color:var(--in);font-weight:700;}
+  .kk-table .amt-out{color:var(--out);font-weight:700;}
+  .kk-table tr.kk-excluded{background:#f3f4f6;opacity:.6;}
+  .kk-table tr.kk-excluded td{color:#9ca3af;}
+  .kk-table tr.kk-excluded .amt-in,.kk-table tr.kk-excluded .amt-out{color:#9ca3af!important;}
+  .kk-table tr.kk-excluded .tag{background:#e5e7eb!important;color:#9ca3af!important;}
+  .kk-table .kk-name{cursor:pointer;}
+  .kk-table .kk-name:hover{color:var(--primary);text-decoration:underline;}
+  .kk-done{text-align:center;padding:24px 10px;}
+  .kk-done .em{font-size:2.2rem;}
+  .loading{text-align:center;padding:30px;color:var(--text-sub);font-size:.85rem;}
+  .spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;margin:0 auto 10px;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>💰 경조사 축의금 관리</h1>
+    <div class="sub">
+      <span class="dot" id="conn-dot"></span><span id="conn-text">Firebase 연결 중…</span>
+      <span class="me-chip" id="me-chip" title="로그아웃">👤 <b id="me-name">-</b> <span style="opacity:.8">🚪</span></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 대시보드 -->
+  <section id="tab-dash">
+    <div class="stat-grid">
+      <div class="stat in"><div class="label">📥 총 받은 금액</div><div class="value" id="s-in">0원</div><div class="cnt" id="s-in-cnt">0건</div></div>
+      <div class="stat out"><div class="label">📤 총 보낸 금액</div><div class="value" id="s-out">0원</div><div class="cnt" id="s-out-cnt">0건</div></div>
+      <div class="stat net"><div class="label">⚖️ 순차액 (받음 − 보냄) <button id="net-toggle" class="eye-btn" title="표시/숨김">👁️</button></div><div class="value" id="s-net">●●●●</div><div class="cnt" id="s-net-desc"></div></div>
+    </div>
+    <div class="card"><h2>🕐 최근 내역</h2><div class="list" id="recent-list"></div></div>
+    <div class="card">
+      <h2>👥 인물별 히스토리
+        <select id="person-sort" class="sort-sel">
+          <option value="new">최신순</option>
+          <option value="old">오래된순</option>
+          <option value="amt_hi">금액 높은순</option>
+          <option value="amt_lo">금액 낮은순</option>
+          <option value="name">이름순</option>
+        </select>
+      </h2>
+      <div id="person-list"></div>
+    </div>
+  </section>
+
+  <!-- 받음 -->
+  <section id="tab-in" class="hidden">
+    <div class="card"><h2 style="color:var(--in)">📥 받은 금액 기록</h2><div id="form-in"></div></div>
+    <div class="section-title">받은 내역 목록</div>
+    <div class="filterbar"><input type="search" id="search-in" placeholder="🔍 이름 검색"><select id="filter-in"></select><select id="byfilter-in"></select></div>
+    <div class="list" id="list-in"></div>
+  </section>
+
+  <!-- 보냄 -->
+  <section id="tab-out" class="hidden">
+    <div class="card"><h2 style="color:var(--out)">📤 보낸 금액 기록</h2><div id="form-out"></div></div>
+    <div class="section-title">보낸 내역 목록</div>
+    <div class="filterbar"><input type="search" id="search-out" placeholder="🔍 이름 검색"><select id="filter-out"></select><select id="byfilter-out"></select></div>
+    <div class="list" id="list-out"></div>
+  </section>
+
+  <!-- 답례 -->
+  <section id="tab-repay" class="hidden">
+    <div class="card">
+      <h2>🎁 답례 권장 금액</h2>
+      <p class="muted" style="font-size:.82rem;margin:0 0 4px;">받은 금액 기준으로 답례 권장액을 계산합니다.</p>
+      <div class="ratio-box">
+        <span class="muted" style="font-size:.78rem;">답례 비율</span>
+        <input type="range" id="ratio" min="30" max="150" step="5" value="100">
+        <span class="ratio-val" id="ratio-val">100%</span>
+      </div>
+      <p class="muted" style="font-size:.74rem;margin:8px 0 0;">💡 일반적으로 받은 금액의 <b>50~100%</b>를 답례합니다. 현물(과일·상품권 등)로 대신할 경우 비슷한 가치로 준비하세요.</p>
+    </div>
+    <div class="seg" id="repay-seg">
+      <button class="on" data-rf="wait">답례 대기 ⏳</button>
+      <button data-rf="all">전체</button>
+    </div>
+    <div id="repay-list"></div>
+  </section>
+
+  <!-- 설정 -->
+  <section id="tab-set" class="hidden">
+    <div class="card hidden" id="admin-card">
+      <h2>🛡️ 관리자</h2>
+      <div class="section-title" style="margin:2px 0 6px;">가입된 사용자</div>
+      <div id="admin-users"></div>
+      <button class="btn btn-ghost btn-sm" id="admin-delall" style="color:var(--out);margin-top:14px;">🗑️ 전체 거래 데이터 삭제</button>
+    </div>
+
+    <div class="card">
+      <h2>🏷️ 경조사 종류 관리</h2>
+      <p class="muted" style="font-size:.8rem;margin-top:0;">자주 쓰는 경조사 종류를 추가/삭제할 수 있어요.</p>
+      <div class="row">
+        <div class="field" style="margin-bottom:0;"><input type="text" id="new-cat" placeholder="예: 승진, 입학, 환갑"></div>
+        <button class="btn btn-primary" style="width:auto;padding:11px 18px;" id="btn-addcat">추가</button>
+      </div>
+      <div id="cat-chips" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;"></div>
+    </div>
+    <div class="card">
+      <h2>📇 연락처 관리</h2>
+      <div class="row">
+        <div class="field"><label>이름</label><input type="text" id="c-name" placeholder="홍길동"></div>
+        <div class="field"><label>전화번호</label><input type="tel" id="c-phone" inputmode="tel" placeholder="010-1234-5678"></div>
+      </div>
+      <div class="field"><label>관계</label><input type="text" id="c-rel" placeholder="친구 / 직장동료 / 친척"></div>
+      <button class="btn btn-primary" id="c-save">＋ 연락처 추가</button>
+      <div class="kk-ex-actions" style="margin-top:8px;">
+        <button type="button" id="c-csv-btn">📄 CSV 가져오기</button>
+        <button type="button" id="c-vcf-btn">📱 연락처(.vcf) 가져오기</button>
+      </div>
+      <input type="file" id="c-csv-file" accept=".csv,.txt" class="hidden">
+      <input type="file" id="c-vcf-file" accept=".vcf,.vcard" class="hidden">
+      <p class="muted" style="font-size:.72rem;margin:6px 0 0;">CSV 형식: 이름,전화번호,관계 (첫 줄 헤더 가능) · .vcf는 이름·전화번호 자동 추출</p>
+      <div class="filterbar" style="margin-top:12px;"><input type="search" id="c-search" placeholder="🔍 이름·번호 검색"></div>
+      <div id="c-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>🏦 카카오뱅크 가져오기</h2>
+      <p class="muted" style="font-size:.8rem;margin-top:0;">카카오뱅크 거래내역 엑셀(.xlsx)을 업로드하면 자동 분석합니다. 여러 파일을 한꺼번에 올릴 수 있고, 같은 날짜·이름·금액은 중복 제거됩니다.</p>
+      <div id="kk-drop" class="kk-drop">
+        <div class="kk-drop-ic">📂</div>
+        <div class="kk-drop-txt">엑셀 파일을 여기로 끌어다 놓거나<br>아래 버튼으로 선택하세요 <b>(여러 개 가능)</b></div>
+        <button class="btn btn-ghost btn-sm" id="btn-kakao-file" style="max-width:220px;margin:12px auto 0;">📂 엑셀 파일 선택 (.xlsx)</button>
+      </div>
+      <input type="file" id="kakao-file" accept=".xlsx,.xls" multiple class="hidden">
+      <div id="kk-files" class="kk-files"></div>
+      <div id="kakao-preview"></div>
+    </div>
+
+    <div class="card">
+      <h2>🔑 비밀번호 변경</h2>
+      <div class="field"><label>현재 비밀번호</label><input type="password" id="pw-cur" autocomplete="current-password"></div>
+      <div class="field"><label>새 비밀번호</label><input type="password" id="pw-new" autocomplete="new-password"></div>
+      <div class="field"><label>새 비밀번호 확인</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
+      <button class="btn btn-primary" id="pw-change-btn">비밀번호 변경</button>
+    </div>
+
+    <div class="card">
+      <h2>☁️ 데이터 정보</h2>
+      <p class="muted" style="font-size:.8rem;margin-top:0;">데이터는 Firebase Firestore에 실시간 저장됩니다. 같은 설정의 다른 기기에서도 자동 동기화돼요.</p>
+      <button class="btn btn-ghost btn-sm" id="btn-export" style="margin-bottom:8px;">📤 데이터 내보내기 (JSON 백업)</button>
+      <p class="muted" style="font-size:.72rem;text-align:center;margin:6px 0 0;">프로젝트: tndj-61fb0</p>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <div class="wrap">
+    <button class="active" data-tab="dash"><span class="ic">📊</span>대시보드</button>
+    <button data-tab="in"><span class="ic">📥</span>받음</button>
+    <button data-tab="out"><span class="ic">📤</span>보냄</button>
+    <button data-tab="repay"><span class="ic">🎁</span>답례</button>
+    <button data-tab="set"><span class="ic">⚙️</span>설정</button>
+  </div>
+</nav>
+
+<!-- 로그인 / 회원가입 화면 -->
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">💰</div>
+    <h2 class="auth-title">경조사 축의금 관리</h2>
+
+    <!-- 로그인 -->
+    <div id="auth-login">
+      <div class="field"><label>이름</label><input type="text" id="login-name" placeholder="이름" autocomplete="username" list="login-names"></div>
+      <datalist id="login-names"></datalist>
+      <div class="field"><label>비밀번호</label>
+        <div class="pw-wrap">
+          <input type="password" id="login-pass" placeholder="비밀번호" autocomplete="current-password">
+          <button type="button" class="pw-eye" id="login-pass-eye" title="비밀번호 표시/숨김">👁️</button>
+        </div>
+      </div>
+      <label class="remember-row"><input type="checkbox" id="login-remember"> 로그인 상태 유지</label>
+      <button class="btn btn-primary" id="login-btn">로그인</button>
+      <p class="auth-switch">처음 오셨나요? <a id="to-signup">회원가입</a></p>
+      <p class="auth-switch" style="margin-top:8px;"><a id="to-find">비밀번호를 잊으셨나요?</a></p>
+    </div>
+
+    <!-- 회원가입 -->
+    <div id="auth-signup" class="hidden">
+      <div class="field"><label>이름</label><input type="text" id="signup-name" placeholder="예: 아빠, 엄마, 홍길동" maxlength="12"></div>
+      <div class="field"><label>비밀번호</label><input type="password" id="signup-pass" placeholder="비밀번호"></div>
+      <div class="field"><label>비밀번호 확인</label><input type="password" id="signup-pass2" placeholder="비밀번호 다시 입력"></div>
+      <button class="btn btn-in" id="signup-btn">가입하기</button>
+      <p class="auth-switch">이미 계정이 있나요? <a id="to-login">로그인</a></p>
+    </div>
+
+    <!-- 비밀번호 찾기 -->
+    <div id="auth-find" class="hidden">
+      <p class="muted" style="font-size:.82rem;margin-top:0;">가입한 이름과 <b>등록된 연락처 전화번호</b>가 일치하면 임시 비밀번호를 발급합니다.</p>
+      <div class="field"><label>이름</label><input type="text" id="find-name" placeholder="가입한 이름"></div>
+      <div class="field"><label>전화번호</label><input type="tel" id="find-phone" inputmode="tel" placeholder="등록된 전화번호 (예: 010-1234-5678)"></div>
+      <button class="btn btn-primary" id="find-btn">임시 비밀번호 발급</button>
+      <div id="find-result" class="find-result"></div>
+      <p class="auth-switch"><a id="find-to-login">로그인으로 돌아가기</a></p>
+    </div>
+
+    <div class="auth-err" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- 수정 모달 -->
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <h3 id="edit-title">내역 수정</h3>
+    <div class="row">
+      <div class="field"><label>이름</label><input type="text" id="e-name" placeholder="홍길동"></div>
+      <div class="field"><label>관계</label>
+        <select id="e-rel-sel" class="rel-sel">
+          <option value="">관계 선택</option>
+          <option>가족</option><option>친구</option><option>동생</option><option>교수</option><option>전직장</option><option>전동료</option>
+          <option value="기타">기타 (직접 입력)</option>
+        </select>
+        <input type="text" id="e-rel-etc" class="rel-etc hidden" placeholder="관계 직접 입력">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>경조사 종류</label><select id="e-cat"></select></div>
+      <div class="field"><label>날짜</label><input type="date" id="e-date"></div>
+    </div>
+    <div class="field">
+      <label>금액</label>
+      <input type="number" inputmode="numeric" id="e-amt" placeholder="50000">
+      <div class="amount-quick" id="e-quick"></div>
+    </div>
+    <div class="field"><label>메모 (선택)</label><input type="text" id="e-memo" placeholder="예: 결혼식 직접 참석"></div>
+    <div class="row" style="margin-top:6px;">
+      <button class="btn btn-ghost" id="e-cancel" style="flex:1;">취소</button>
+      <button class="btn btn-primary" id="e-save" style="flex:1;">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="contact-names"></datalist>
+
+<!-- 오프라인 안내 -->
+<div id="offline-overlay" class="offline-overlay hidden">
+  <div class="offline-box">
+    <div style="font-size:3.2rem;">📡</div>
+    <h2 style="margin:10px 0 6px;">인터넷 연결을 확인해주세요</h2>
+    <p class="muted">오프라인 상태입니다.<br>연결이 복구되면 자동으로 사라집니다.</p>
+  </div>
+</div>
+
+<!-- 홈 화면 추가 배너 -->
+<div id="pwa-banner" class="pwa-banner hidden">
+  <span>📱 홈 화면에 추가하면 앱처럼 사용할 수 있어요!</span>
+  <div class="pwa-banner-btns">
+    <button id="pwa-install-btn" class="hidden">홈 화면에 추가</button>
+    <button id="pwa-guide-btn">안내</button>
+    <button id="pwa-dismiss-btn">다시 보지 않기</button>
+  </div>
+</div>
+
+<!-- 홈 화면 추가 안내 팝업 -->
+<div class="modal-bg" id="pwa-modal">
+  <div class="modal">
+    <h3>📱 홈 화면에 추가하기</h3>
+    <div class="pwa-guide">
+      <b>🍎 아이폰 (Safari)</b>
+      <p>Safari에서 열기 → 하단 <b>공유 버튼 (□↑)</b> → <b>"홈 화면에 추가"</b> 선택</p>
+      <b>🤖 안드로이드 (Chrome)</b>
+      <p>Chrome에서 열기 → 우측 상단 <b>⋮</b> → <b>"홈 화면에 추가"</b> 선택</p>
+    </div>
+    <button class="btn btn-primary" id="pwa-modal-close" style="margin-top:8px;">확인</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, addDoc, deleteDoc, updateDoc, setDoc,
+  onSnapshot, serverTimestamp, writeBatch, getDoc, getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ===== Firebase 설정 ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAjSSHqqX5Ac4HcV1ao4jiQWm0OYhpyVzY",
+  authDomain: "tndj-61fb0.firebaseapp.com",
+  projectId: "tndj-61fb0",
+  storageBucket: "tndj-61fb0.firebasestorage.app",
+  messagingSenderId: "1049136604795",
+  appId: "1:1049136604795:web:b1e79382b5908da823a4de",
+  measurementId: "G-CDWGMGSE44"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const recCol = collection(db, "records");
+const settingsRef = doc(db, "settings", "config");
+const usersCol = collection(db, "users");
+const contactsCol = collection(db, "contacts");
+
+/* ===== 상태 ===== */
+const DEFAULT_CATS = ['결혼','돌잔치','장례','생일','개업','집들이','기타'];
+let records = [];
+let settings = { cats: DEFAULT_CATS.slice(), ratio: 100 };
+let recordsReady = false, settingsReady = false;
+
+/* ===== 인증 (로그인 / 회원가입) ===== */
+const SESSION_KEY = 'gmm_session';
+const REMEMBER_KEY = 'gmm_remember';
+const LASTNAME_KEY = 'gmm_lastname';
+const ADMIN_NAME = '관리자';
+const ADMIN_PASS = 'admin1234';
+let currentUser = null;   // {name, role}
+let myName = '';          // 로그인한 사용자 이름 = 입력자
+let usersList = [];        // 가입 사용자 목록(관리자용)
+function hashPass(s){ let h=5381; const t=String(s); for(let i=0;i<t.length;i++){ h=((h<<5)+h+t.charCodeAt(i))>>>0; } return 'h'+h.toString(36); }
+
+/* ===== 유틸 ===== */
+const won = (n)=>{
+  n = Number(n)||0;
+  if(n===0) return '0원';
+  const neg = n<0; let v = Math.abs(Math.round(n));
+  const eok = Math.floor(v/100000000); v %= 100000000;
+  const man = Math.floor(v/10000); v %= 10000;
+  const parts = [];
+  if(eok) parts.push(eok+'억');
+  if(man) parts.push(man+'만');
+  if(v) parts.push(v.toLocaleString('ko-KR'));
+  return (neg?'-':'')+parts.join(' ')+'원';
+};
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+function fmtDate(s){ if(!s) return ''; const [y,m,d]=s.split('-'); return `${y.slice(2)}.${m}.${d}`; }
+function fmtDateFull(s){ if(!s) return ''; const [y,m,d]=s.split('-'); return `${y}.${m}.${d}`; }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+const CAT_COLORS = {'결혼':'#3498db','장례':'#9b59b6','돌잔치':'#e67e22','생일':'#e91e63','개업':'#27ae60'};
+function catTag(cat){ if(!cat) return ''; const bg=CAT_COLORS[cat]||'#95a5a6'; return `<span class="tag" style="background:${bg};color:#fff;">${esc(cat)}</span>`; }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+function $(id){ return document.getElementById(id); }
+function setConn(state){
+  const dot=$('conn-dot'), txt=$('conn-text');
+  dot.className='dot '+(state==='on'?'on':state==='off'?'off':'');
+  txt.textContent = state==='on'?'실시간 동기화 중':state==='off'?'연결 오류 — 새로고침 해주세요':'Firebase 연결 중…';
+}
+
+/* ===== 탭 ===== */
+const sections = {dash:'tab-dash', in:'tab-in', out:'tab-out', repay:'tab-repay', set:'tab-set'};
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    Object.values(sections).forEach(id=>$(id).classList.add('hidden'));
+    $(sections[b.dataset.tab]).classList.remove('hidden');
+    window.scrollTo(0,0); renderAll();
+  };
+});
+
+/* ===== 입력 폼 ===== */
+/* ===== 관계 선택 (드롭다운 + 기타 직접입력) ===== */
+const REL_OPTIONS = ['가족','친구','동생','교수','전직장','전동료'];
+function relSelectHTML(selId, etcId, current){
+  current = current || '';
+  const inList = REL_OPTIONS.includes(current);
+  const isEtc = current && !inList;
+  const opts = ['<option value="">관계 선택</option>']
+    .concat(REL_OPTIONS.map(o=>`<option${o===current?' selected':''}>${o}</option>`))
+    .concat([`<option value="기타"${isEtc?' selected':''}>기타 (직접 입력)</option>`]).join('');
+  return `<select id="${selId}" class="rel-sel">${opts}</select>`
+    + `<input type="text" id="${etcId}" class="rel-etc${isEtc?'':' hidden'}" placeholder="관계 직접 입력" value="${isEtc?esc(current):''}">`;
+}
+function getRel(p){
+  const sel = $(`${p}-rel-sel`); if(!sel) return '';
+  if(sel.value==='기타') return ($(`${p}-rel-etc`).value||'').trim();
+  return sel.value;
+}
+function setRel(p, val){
+  const sel = $(`${p}-rel-sel`), etc = $(`${p}-rel-etc`); if(!sel) return;
+  val = val || '';
+  if(val && !REL_OPTIONS.includes(val)){ sel.value='기타'; etc.classList.remove('hidden'); etc.value=val; }
+  else { sel.value=val; etc.classList.add('hidden'); etc.value=''; }
+}
+function bindRel(p){
+  const sel = $(`${p}-rel-sel`), etc = $(`${p}-rel-etc`); if(!sel) return;
+  sel.onchange = ()=>{ if(sel.value==='기타'){ etc.classList.remove('hidden'); etc.focus(); } else { etc.classList.add('hidden'); etc.value=''; } };
+}
+// 카카오 미리보기용 (data-i 기반)
+function relSelectKK(i, current){
+  current = current || '';
+  const inList = REL_OPTIONS.includes(current);
+  const isEtc = current && !inList;
+  const opts = ['<option value="">관계</option>']
+    .concat(REL_OPTIONS.map(o=>`<option${o===current?' selected':''}>${o}</option>`))
+    .concat([`<option value="기타"${isEtc?' selected':''}>기타</option>`]).join('');
+  return `<select class="kk-rel-sel" data-i="${i}">${opts}</select>`
+    + `<input type="text" class="kk-rel-etc${isEtc?'':' hidden'}" data-i="${i}" placeholder="직접입력" value="${isEtc?esc(current):''}">`;
+}
+
+function buildForm(type){
+  const label = type==='in' ? '받은' : '보낸';
+  const c = type;
+  return `
+    <div class="row">
+      <div class="field"><label>이름</label><input type="text" id="${type}-name" placeholder="홍길동" list="contact-names" autocomplete="off"></div>
+      <div class="field"><label>관계</label>${relSelectHTML(`${type}-rel-sel`, `${type}-rel-etc`, '')}</div>
+    </div>
+    <div class="row">
+      <div class="field"><label>경조사 종류</label><select id="${type}-cat"></select></div>
+      <div class="field"><label>날짜</label><input type="date" id="${type}-date"></div>
+    </div>
+    <div class="field">
+      <label>${label} 금액</label>
+      <input type="number" inputmode="numeric" id="${type}-amt" placeholder="50000">
+      <div class="amount-quick" id="${type}-quick"></div>
+    </div>
+    <div class="field"><label>메모 (선택)</label><input type="text" id="${type}-memo" placeholder="예: 결혼식 직접 참석"></div>
+    <button class="btn btn-${c}" id="${type}-submit">＋ ${label} 내역 추가</button>
+  `;
+}
+function fillCatSelect(sel, withAll){
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = (withAll?'<option value="">전체 종류</option>':'') + settings.cats.map(c=>`<option>${esc(c)}</option>`).join('');
+  if(cur) sel.value = cur;
+}
+function setupQuick(type){
+  const box = $(type+'-quick');
+  const amts = [30000,50000,70000,100000,200000];
+  box.innerHTML = amts.map(a=>`<button type="button" data-a="${a}">${(a/10000)}만</button>`).join('') +
+    `<button type="button" data-a="0" style="background:#f1f2f4;color:#6b7280;">초기화</button>`;
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{ const inp=$(type+'-amt'); const v=+b.dataset.a; inp.value = v===0?'':(+inp.value||0)+v; };
+  });
+}
+
+/* ===== CRUD (Firestore) ===== */
+async function addRecord(type){
+  const name = $(type+'-name').value.trim();
+  const amt = parseInt($(type+'-amt').value,10);
+  if(!name){ toast('이름을 입력하세요'); return; }
+  if(!amt || amt<=0){ toast('금액을 입력하세요'); return; }
+  const btn = $(type+'-submit'); btn.disabled=true;
+  try{
+    await addDoc(recCol, {
+      type, name,
+      rel: getRel(type),
+      cat: $(type+'-cat').value,
+      date: $(type+'-date').value || todayStr(),
+      amount: amt,
+      memo: $(type+'-memo').value.trim(),
+      enteredBy: myName || '미지정',
+      repaid: false,
+      createdAt: serverTimestamp()
+    });
+    ['name','amt','memo'].forEach(f=>$(type+'-'+f).value='');
+    setRel(type, '');
+    $(type+'-date').value = todayStr();
+    toast(type==='in'?'받은 내역 저장됨 ✅':'보낸 내역 저장됨 ✅');
+  }catch(e){ console.error(e); toast('저장 실패: '+e.code); }
+  finally{ btn.disabled=false; }
+}
+async function delRecord(id){
+  if(!confirm('이 내역을 삭제할까요?')) return;
+  try{ await deleteDoc(doc(db,"records",id)); toast('삭제됨'); }
+  catch(e){ console.error(e); toast('삭제 실패'); }
+}
+async function toggleRepaid(id, cur){
+  try{ await updateDoc(doc(db,"records",id), {repaid:!cur}); }
+  catch(e){ console.error(e); toast('변경 실패'); }
+}
+async function saveSettings(){
+  try{ await setDoc(settingsRef, settings); }
+  catch(e){ console.error(e); toast('설정 저장 실패'); }
+}
+
+/* ===== 인증 ===== */
+async function seedAdmin(){
+  try{
+    const ref = doc(db,"users",ADMIN_NAME);
+    const s = await getDoc(ref);
+    if(!s.exists()) await setDoc(ref,{name:ADMIN_NAME, pass:hashPass(ADMIN_PASS), role:'admin', createdAt:serverTimestamp()});
+  }catch(e){ console.error('seedAdmin',e); }
+}
+function showAuth(){ $('auth-screen').classList.remove('hidden'); switchAuth('login'); }
+function hideAuth(){ $('auth-screen').classList.add('hidden'); }
+function switchAuth(which){
+  $('auth-login').classList.toggle('hidden', which!=='login');
+  $('auth-signup').classList.toggle('hidden', which!=='signup');
+  $('auth-find').classList.toggle('hidden', which!=='find');
+  $('auth-err').textContent='';
+  const fr=$('find-result'); if(fr) fr.innerHTML='';
+}
+function gen6(){ return String(Math.floor(100000 + Math.random()*900000)); }
+async function doFindPassword(){
+  const name = $('find-name').value.trim();
+  const phone = $('find-phone').value.replace(/[^\d]/g,'');
+  const fr = $('find-result'); fr.innerHTML=''; authErr('');
+  if(!name || !phone){ authErr('이름과 전화번호를 입력하세요'); return; }
+  try{
+    const us = await getDoc(doc(db,"users",name));
+    const matched = us.exists() && contacts.some(c=>
+      (c.name===name || normName(c.name)===normName(name)) &&
+      String(c.phone||'').replace(/[^\d]/g,'')===phone
+    );
+    if(!matched){
+      fr.innerHTML = '<div class="find-fail">일치하는 계정을 찾을 수 없습니다.<br><span class="muted">이름·전화번호를 확인하거나 관리자에게 문의해 주세요.</span></div>';
+      return;
+    }
+    const temp = gen6();
+    await updateDoc(doc(db,"users",name), {pass:hashPass(temp)});
+    fr.innerHTML = `<div class="find-ok">임시 비밀번호: <b>${temp}</b><br><span class="muted">이 비밀번호로 로그인 후 설정 → 비밀번호 변경에서 바꿔주세요.</span></div>`;
+  }catch(e){ console.error(e); authErr('처리 실패: '+(e.code||e.message)); }
+}
+function authErr(msg){ $('auth-err').textContent = msg||''; }
+function setSession(u, remember=true){
+  currentUser = {name:u.name, role:u.role||'user'};
+  myName = u.name;
+  const data = JSON.stringify(currentUser);
+  if(remember){
+    localStorage.setItem(SESSION_KEY, data);
+    localStorage.setItem(LASTNAME_KEY, u.name);
+    localStorage.setItem(REMEMBER_KEY, '1');
+    sessionStorage.removeItem(SESSION_KEY);
+  }else{
+    sessionStorage.setItem(SESSION_KEY, data);  // 브라우저 닫으면 자동 로그아웃
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(LASTNAME_KEY);
+    localStorage.setItem(REMEMBER_KEY, '0');
+  }
+  $('me-name').textContent = u.name;
+  hideAuth(); renderAdmin(); renderAll(); updateLoginNames();
+}
+async function doLogin(){
+  const name = $('login-name').value.trim();
+  const pass = $('login-pass').value;
+  if(!name || !pass){ authErr('이름과 비밀번호를 입력하세요'); return; }
+  authErr('');
+  try{
+    const s = await getDoc(doc(db,"users",name));
+    if(!s.exists()){ authErr('존재하지 않는 사용자예요'); return; }
+    const u = s.data();
+    if(u.pass !== hashPass(pass)){ authErr('비밀번호가 일치하지 않아요'); return; }
+    const remember = $('login-remember').checked;
+    $('login-pass').value=''; setSession(u, remember); toast(`${name}님 환영합니다 👋`);
+  }catch(e){ console.error(e); authErr('로그인 실패: '+(e.code||e.message)); }
+}
+async function doSignup(){
+  const name = $('signup-name').value.trim();
+  const p1 = $('signup-pass').value, p2 = $('signup-pass2').value;
+  if(!name){ authErr('이름을 입력하세요'); return; }
+  if(!p1){ authErr('비밀번호를 입력하세요'); return; }
+  if(p1 !== p2){ authErr('비밀번호가 일치하지 않아요'); return; }
+  authErr('');
+  try{
+    const ref = doc(db,"users",name);
+    const s = await getDoc(ref);
+    if(s.exists()){ authErr('이미 사용 중인 이름이에요'); return; }
+    const u = {name, pass:hashPass(p1), role:'user', createdAt:serverTimestamp()};
+    await setDoc(ref, u);
+    $('signup-pass').value=''; $('signup-pass2').value=''; $('signup-name').value='';
+    setSession(u, $('login-remember').checked); toast(`${name}님 가입 완료 🎉`);
+  }catch(e){ console.error(e); authErr('가입 실패: '+(e.code||e.message)); }
+}
+function logout(){
+  if(!confirm('로그아웃 할까요?')) return;
+  currentUser=null; myName='';
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+  $('me-name').textContent='-';
+  renderAdmin(); showAuth(); initLoginPrefs();
+}
+// 로그인 화면 환경설정 (이름 자동입력 / 체크박스 / 드롭다운)
+function initLoginPrefs(){
+  const remember = localStorage.getItem(REMEMBER_KEY) !== '0';  // 기본 ON
+  const rb = $('login-remember'); if(rb) rb.checked = remember;
+  const last = localStorage.getItem(LASTNAME_KEY);
+  if(last && remember && $('login-name')) $('login-name').value = last;
+  updateLoginNames();
+}
+function updateLoginNames(){
+  const dl = $('login-names'); if(!dl) return;
+  const last = localStorage.getItem(LASTNAME_KEY);
+  const names = usersList.map(u=>u.name).filter(Boolean);
+  const ordered = [];
+  if(last) ordered.push(last);                                  // 마지막 로그인 사용자 상단
+  names.filter(n=>n!==last).sort((a,b)=>a.localeCompare(b,'ko')).forEach(n=>ordered.push(n));
+  dl.innerHTML = ordered.map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
+
+/* ===== 관리자 ===== */
+function startUsersSync(){
+  onSnapshot(usersCol, snap=>{ usersList = snap.docs.map(d=>d.data()); renderAdmin(); updateLoginNames(); },
+    err=>console.error('users onSnapshot',err));
+}
+function renderAdmin(){
+  const card = $('admin-card'); if(!card) return;
+  if(!currentUser || currentUser.role!=='admin'){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const box = $('admin-users');
+  const list = usersList.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
+  box.innerHTML = list.length ? list.map(u=>`
+    <div class="admin-user">
+      <div><b>${esc(u.name)}</b> ${u.role==='admin'?'<span class="tag" style="background:var(--primary-soft);color:var(--primary);">관리자</span>':''}</div>
+      <div class="admin-actions">
+        <button data-act="reset" data-n="${esc(u.name)}">비번 초기화</button>
+        ${u.name===ADMIN_NAME?'':`<button data-act="del" data-n="${esc(u.name)}" class="danger">삭제</button>`}
+      </div>
+    </div>`).join('') : '<p class="muted" style="font-size:.8rem;">가입된 사용자가 없습니다.</p>';
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=> b.dataset.act==='reset' ? adminResetPw(b.dataset.n) : adminDelUser(b.dataset.n);
+  });
+}
+async function adminResetPw(name){
+  if(!confirm(`'${name}'님의 비밀번호를 임시 비밀번호 '1234'로 초기화할까요?`)) return;
+  try{
+    await updateDoc(doc(db,"users",name), {pass:hashPass('1234')});
+    alert(`'${name}'님의 임시 비밀번호는 '1234' 입니다.\n로그인 후 비밀번호를 변경하도록 안내해 주세요.`);
+    toast(`'${name}' 비밀번호 초기화됨 (1234)`);
+  }catch(e){ console.error(e); toast('실패: '+(e.code||e.message)); }
+}
+async function changePassword(){
+  if(!currentUser){ toast('로그인이 필요해요'); return; }
+  const cur = $('pw-cur').value, np = $('pw-new').value, np2 = $('pw-new2').value;
+  if(!cur || !np){ toast('비밀번호를 입력하세요'); return; }
+  if(np !== np2){ toast('새 비밀번호가 일치하지 않아요'); return; }
+  const btn = $('pw-change-btn'); btn.disabled=true;
+  try{
+    const s = await getDoc(doc(db,"users",currentUser.name));
+    if(!s.exists()){ toast('계정을 찾을 수 없어요'); return; }
+    if(s.data().pass !== hashPass(cur)){ toast('현재 비밀번호가 일치하지 않아요'); return; }
+    await updateDoc(doc(db,"users",currentUser.name), {pass:hashPass(np)});
+    $('pw-cur').value=''; $('pw-new').value=''; $('pw-new2').value='';
+    toast('비밀번호가 변경되었습니다 ✅');
+  }catch(e){ console.error(e); toast('변경 실패: '+(e.code||e.message)); }
+  finally{ btn.disabled=false; }
+}
+async function adminDelUser(name){
+  if(name===ADMIN_NAME){ toast('관리자 계정은 삭제할 수 없어요'); return; }
+  if(!confirm(`'${name}' 사용자를 삭제할까요?`)) return;
+  try{ await deleteDoc(doc(db,"users",name)); toast(`'${name}' 삭제됨`); }
+  catch(e){ console.error(e); toast('삭제 실패'); }
+}
+async function adminDeleteAllData(){
+  if(!confirm('모든 거래 내역을 삭제할까요? 되돌릴 수 없습니다.')) return;
+  if(!confirm('정말 전체 삭제하시겠어요? (마지막 확인)')) return;
+  try{
+    const snap = await getDocs(recCol);
+    const docs = snap.docs; let n=0;
+    for(let s=0;s<docs.length;s+=400){
+      const batch = writeBatch(db);
+      docs.slice(s,s+400).forEach(d=>batch.delete(d.ref));
+      await batch.commit(); n += Math.min(400, docs.length-s);
+    }
+    toast(`${n}건 전체 삭제됨`);
+  }catch(e){ console.error(e); toast('삭제 실패: '+(e.code||e.message)); }
+}
+
+/* ===== 연락처 관리 ===== */
+let contacts = [];
+let editingContactId = null;
+
+function startContactsSync(){
+  onSnapshot(contactsCol, snap=>{
+    contacts = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderContacts();
+  }, err=>console.error('contacts onSnapshot', err));
+}
+
+// 이름 정규화 (괄호/밑줄 제거)
+function normName(s){ return String(s||'').replace(/[(（][^)）]*[)）]/g,'').replace(/_/g,' ').replace(/\s+/g,' ').trim(); }
+// 연락처 매칭 (정확 → 정규화 → 부분 일치)
+function findContactMatch(name){
+  if(!name || !contacts.length) return null;
+  let m = contacts.find(c=>c.name===name); if(m) return m;
+  const nn = normName(name);
+  if(nn){
+    m = contacts.find(c=>normName(c.name)===nn); if(m) return m;
+    m = contacts.find(c=>{ const cn=normName(c.name); return cn && (nn.includes(cn) || cn.includes(nn) || name.includes(c.name)); });
+    if(m) return m;
+  }
+  return null;
+}
+
+function updateContactDatalist(){
+  const dl = $('contact-names'); if(!dl) return;
+  dl.innerHTML = contacts.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'))
+    .map(c=>`<option value="${esc(c.name)}">${c.rel?esc(c.rel):''}${c.phone?' · '+esc(c.phone):''}</option>`).join('');
+}
+
+function renderContacts(){
+  updateContactDatalist();
+  const box = $('c-list'); if(!box) return;
+  const q = ($('c-search')?.value||'').trim().toLowerCase();
+  let arr = contacts.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
+  if(q) arr = arr.filter(c=>(c.name||'').toLowerCase().includes(q) || (c.phone||'').replace(/-/g,'').includes(q.replace(/-/g,'')));
+  box.innerHTML = arr.length ? arr.map(c=>`
+    <div class="contact-item">
+      <div class="ci-info"><b>${esc(c.name)}</b>${c.rel?` <span class="tag">${esc(c.rel)}</span>`:''}${c.phone?`<div class="ci-phone">📞 ${esc(c.phone)}</div>`:''}</div>
+      <div class="ci-actions"><button data-act="edit" data-id="${c.id}" title="수정">✏️</button><button data-act="del" data-id="${c.id}" title="삭제">🗑️</button></div>
+    </div>`).join('')
+    : `<p class="muted" style="font-size:.8rem;padding:6px 0;">${contacts.length?'검색 결과가 없습니다.':'등록된 연락처가 없습니다.'}</p>`;
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=> b.dataset.act==='edit' ? editContact(b.dataset.id) : delContact(b.dataset.id);
+  });
+}
+
+async function saveContact(){
+  const name = $('c-name').value.trim();
+  const phone = $('c-phone').value.trim();
+  const rel = $('c-rel').value.trim();
+  if(!name){ toast('이름을 입력하세요'); return; }
+  const btn = $('c-save'); btn.disabled=true;
+  try{
+    if(editingContactId){
+      await updateDoc(doc(db,"contacts",editingContactId), {name, phone, rel});
+      toast('연락처 수정됨 ✅');
+    }else{
+      await addDoc(contactsCol, {name, phone, rel, createdAt:serverTimestamp()});
+      toast('연락처 추가됨 ✅');
+    }
+    editingContactId=null; btn.textContent='＋ 연락처 추가';
+    $('c-name').value=''; $('c-phone').value=''; $('c-rel').value='';
+  }catch(e){ console.error(e); toast('저장 실패: '+(e.code||e.message)); }
+  finally{ btn.disabled=false; }
+}
+function editContact(id){
+  const c = contacts.find(x=>x.id===id); if(!c) return;
+  editingContactId = id;
+  $('c-name').value=c.name||''; $('c-phone').value=c.phone||''; $('c-rel').value=c.rel||'';
+  $('c-save').textContent='💾 연락처 수정 저장';
+  $('c-name').scrollIntoView({behavior:'smooth', block:'center'});
+  $('c-name').focus();
+}
+async function delContact(id){
+  const c = contacts.find(x=>x.id===id);
+  if(!confirm(`'${c?c.name:''}' 연락처를 삭제할까요?`)) return;
+  try{ await deleteDoc(doc(db,"contacts",id)); toast('삭제됨'); if(editingContactId===id){ editingContactId=null; $('c-save').textContent='＋ 연락처 추가'; $('c-name').value=''; $('c-phone').value=''; $('c-rel').value=''; } }
+  catch(e){ console.error(e); toast('삭제 실패'); }
+}
+
+/* ===== 연락처 일괄 등록 ===== */
+function readTextSmart(file, cb){
+  const r = new FileReader();
+  r.onload = ()=>{
+    const buf = new Uint8Array(r.result);
+    let txt='';
+    try{ txt = new TextDecoder('utf-8',{fatal:false}).decode(buf); }catch(e){ txt=''; }
+    if(/�/.test(txt)){ try{ txt = new TextDecoder('euc-kr').decode(buf); }catch(e){} }  // 한글 CSV 대비
+    cb(txt);
+  };
+  r.onerror = ()=>{ toast('파일 읽기 실패'); };
+  r.readAsArrayBuffer(file);
+}
+function parseCsv(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const out = [];
+  lines.forEach((line,i)=>{
+    const cols = line.split(/[,\t]/).map(c=>c.trim().replace(/^"|"$/g,''));
+    if(i===0 && (cols[0]==='이름' || /name/i.test(cols[0]))) return;  // 헤더 스킵
+    if(!cols[0]) return;
+    out.push({name:cols[0], phone:cols[1]||'', rel:cols[2]||''});
+  });
+  return out;
+}
+function decodeQP(str){
+  try{
+    const bytes=[];
+    for(let i=0;i<str.length;i++){
+      if(str[i]==='=' && i+2<=str.length-1+1 && /[0-9A-Fa-f]{2}/.test(str.substr(i+1,2))){ bytes.push(parseInt(str.substr(i+1,2),16)); i+=2; }
+      else bytes.push(str.charCodeAt(i));
+    }
+    return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+  }catch(e){ return str; }
+}
+function parseVcf(text){
+  const out = [];
+  const blocks = text.split(/END:VCARD/i);
+  blocks.forEach(block=>{
+    if(!/BEGIN:VCARD/i.test(block)) return;
+    const raw = block.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,'');  // soft line unfold
+    const lines = raw.split(/\r?\n/);
+    let fn='', n='', tel='';
+    lines.forEach(line=>{
+      const idx = line.indexOf(':'); if(idx<0) return;
+      const head = line.slice(0,idx).toUpperCase();
+      let val = line.slice(idx+1).trim();
+      if(/QUOTED-PRINTABLE/i.test(head)) val = decodeQP(val);
+      if(head.startsWith('FN')) fn = val;
+      else if(head.startsWith('N') && !head.startsWith('NOTE') && !head.startsWith('NICK')) { if(!n) n = val; }
+      else if(head.startsWith('TEL') && !tel) tel = val.replace(/[^\d+]/g,'');
+    });
+    let name = fn || (n ? n.split(';').filter(Boolean).join('') : '');
+    name = name.replace(/;/g,'').trim();
+    if(name) out.push({name, phone:tel, rel:''});
+  });
+  return out;
+}
+async function bulkAddContacts(items){
+  const existing = new Set(contacts.map(c=>c.name));
+  const seen = new Set();
+  const toAdd = items.filter(it=>{ const nm=(it.name||'').trim(); if(!nm) return false; if(existing.has(nm)||seen.has(nm)) return false; seen.add(nm); return true; });
+  if(!toAdd.length){ toast('추가할 새 연락처가 없어요 (중복 제외)'); return; }
+  try{
+    let n=0;
+    for(let s=0;s<toAdd.length;s+=400){
+      const batch = writeBatch(db);
+      toAdd.slice(s,s+400).forEach(it=>{ batch.set(doc(contactsCol), {name:it.name.trim(), phone:(it.phone||'').trim(), rel:(it.rel||'').trim(), createdAt:serverTimestamp()}); });
+      await batch.commit(); n += Math.min(400, toAdd.length-s);
+    }
+    toast(`${n}명 연락처 추가됨 🎉`);
+  }catch(e){ console.error(e); toast('일괄 등록 실패: '+(e.code||e.message)); }
+}
+
+/* ===== 수정(편집) ===== */
+let editingId = null;
+function openEdit(id){
+  const r = records.find(x=>x.id===id);
+  if(!r){ toast('내역을 찾을 수 없어요'); return; }
+  editingId = id;
+  $('edit-title').innerHTML = (r.type==='in'?'📥 받은 내역 수정':'📤 보낸 내역 수정');
+  fillCatSelect($('e-cat'), false);
+  $('e-name').value = r.name || '';
+  setRel('e', r.rel || '');
+  $('e-cat').value  = r.cat || '';
+  $('e-date').value = r.date || todayStr();
+  $('e-amt').value  = r.amount || '';
+  $('e-memo').value = r.memo || '';
+  $('edit-modal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeEdit(){
+  $('edit-modal').classList.remove('show');
+  document.body.style.overflow = '';
+  editingId = null;
+}
+async function saveEdit(){
+  if(!editingId) return;
+  const name = $('e-name').value.trim();
+  const amt = parseInt($('e-amt').value,10);
+  if(!name){ toast('이름을 입력하세요'); return; }
+  if(!amt || amt<=0){ toast('금액을 입력하세요'); return; }
+  const btn = $('e-save'); btn.disabled=true;
+  try{
+    await updateDoc(doc(db,"records",editingId), {
+      name,
+      rel:  getRel('e'),
+      cat:  $('e-cat').value,
+      date: $('e-date').value || todayStr(),
+      amount: amt,
+      memo: $('e-memo').value.trim()
+    });
+    toast('수정 완료 ✅');
+    closeEdit();
+  }catch(e){ console.error(e); toast('수정 실패: '+(e.code||e.message)); }
+  finally{ btn.disabled=false; }
+}
+
+// 전역 노출 (인라인 onclick 대체용)
+window.gmm = { delRecord, toggleRepaid, openEdit };
+
+/* ===== 렌더 ===== */
+function recordItem(r){
+  return `<div class="item ${r.type}">
+    <div class="avatar">${esc(r.name.charAt(0))}</div>
+    <div class="info">
+      <div class="name">${esc(r.name)} ${catTag(r.cat)}</div>
+      <div class="meta">${r.rel?esc(r.rel)+' · ':''}${fmtDate(r.date)}${r.memo?' · '+esc(r.memo):''}${r.enteredBy?` · <span class="by">${esc(r.enteredBy)}가 입력</span>`:''}</div>
+    </div>
+    <div class="right"><div class="amt">${r.type==='in'?'+':'−'}${won(r.amount)}</div></div>
+    <button class="edit" onclick="gmm.openEdit('${r.id}')" title="수정">✏️</button>
+    <button class="del" onclick="gmm.delRecord('${r.id}')" title="삭제">🗑️</button>
+  </div>`;
+}
+function emptyHtml(em,t,s){ return `<div class="empty"><div class="em">${em}</div><div style="font-weight:700;color:#4b5563;">${t}</div><div style="font-size:.8rem;margin-top:3px;">${s}</div></div>`; }
+function loadingHtml(){ return `<div class="loading"><div class="spinner"></div>불러오는 중…</div>`; }
+
+let netHidden = (localStorage.getItem('gmm_net_hidden') !== '0');  // 기본값: 숨김
+let lastNet = 0;
+function renderNet(){
+  const nv=$('s-net'), desc=$('s-net-desc'), btn=$('net-toggle');
+  if(!nv) return;
+  if(netHidden){
+    nv.textContent='●●●●'; nv.className='value';
+    if(desc) desc.textContent='👁️ 눌러서 금액 보기';
+    if(btn) btn.textContent='👁️';
+  }else{
+    nv.textContent=(lastNet>=0?'+':'−')+won(Math.abs(lastNet));
+    nv.className='value '+(lastNet>=0?'pos':'neg');
+    if(desc) desc.textContent=lastNet>=0?'받은 금액이 더 많아요':'보낸 금액이 더 많아요';
+    if(btn) btn.textContent='🙈';
+  }
+}
+function renderStats(){
+  const ins = records.filter(r=>r.type==='in'), outs = records.filter(r=>r.type==='out');
+  const sin = ins.reduce((a,r)=>a+r.amount,0), sout = outs.reduce((a,r)=>a+r.amount,0);
+  $('s-in').textContent = won(sin); $('s-out').textContent = won(sout);
+  $('s-in-cnt').textContent = ins.length+'건'; $('s-out-cnt').textContent = outs.length+'건';
+  lastNet = sin - sout;
+  renderNet();
+}
+function recentItem(r){
+  const detail = [];
+  detail.push(`<div class="rd-line"><span class="rd-k">📅 날짜</span><span class="rd-v">${fmtDateFull(r.date)}</span></div>`);
+  if(r.rel) detail.push(`<div class="rd-line"><span class="rd-k">🤝 관계</span><span class="rd-v">${esc(r.rel)}</span></div>`);
+  detail.push(`<div class="rd-line"><span class="rd-k">✍️ 입력자</span><span class="rd-v">${esc(r.enteredBy||'미지정')}</span></div>`);
+  if(r.memo) detail.push(`<div class="rd-line"><span class="rd-k">📝 메모</span><span class="rd-v">${esc(r.memo)}</span></div>`);
+  return `<div class="rec-item">
+    <div class="rec-main" onclick="this.parentNode.classList.toggle('open')">
+      <div class="rec-name">${esc(r.name)} ${catTag(r.cat)}</div>
+      <div class="rec-right">
+        <span class="rec-amt ${r.type}">${r.type==='in'?'+':'−'}${won(r.amount)}</span>
+        <button class="rec-edit" onclick="event.stopPropagation();gmm.openEdit('${r.id}')" title="수정">✏️</button>
+        <button class="rec-del" onclick="event.stopPropagation();gmm.delRecord('${r.id}')" title="삭제">🗑️</button>
+        <span class="chev">›</span>
+      </div>
+    </div>
+    <div class="rec-detail">${detail.join('')}</div>
+  </div>`;
+}
+function renderRecent(){
+  const box = $('recent-list');
+  if(!recordsReady){ box.innerHTML=loadingHtml(); return; }
+  const recent = [...records].sort(sortByDate).slice(0,5);
+  box.innerHTML = recent.length ? recent.map(recentItem).join('') : emptyHtml('🗒️','아직 기록이 없어요','받음·보냄 탭에서 추가해보세요');
+}
+function sortByDate(a,b){ return (b.date||'').localeCompare(a.date||'') || (b.id||'').localeCompare(a.id||''); }
+
+function renderList(type){
+  const box = $('list-'+type);
+  if(!recordsReady){ box.innerHTML=loadingHtml(); return; }
+  const q = $('search-'+type).value.trim().toLowerCase();
+  const cf = $('filter-'+type).value;
+  const bf = $('byfilter-'+type).value;
+  let arr = records.filter(r=>r.type===type);
+  if(q) arr = arr.filter(r=>r.name.toLowerCase().includes(q));
+  if(cf) arr = arr.filter(r=>r.cat===cf);
+  if(bf) arr = arr.filter(r=>(r.enteredBy||'미지정')===bf);
+  arr.sort(sortByDate);
+  box.innerHTML = arr.length ? arr.map(recordItem).join('')
+    : emptyHtml(type==='in'?'📥':'📤','내역이 없어요', q||cf||bf?'검색 조건을 바꿔보세요':'위에서 내역을 추가하세요');
+}
+let personSort = localStorage.getItem('gmm_person_sort') || 'new';  // new/old/amt_hi/amt_lo/name
+function sortPersons(arr){
+  const latest = p => p.recs.reduce((m,r)=>((r.date||'')>m?(r.date||''):m), '');
+  const total  = p => p.in + p.out;
+  switch(personSort){
+    case 'old':    return arr.sort((a,b)=> latest(a).localeCompare(latest(b)) );
+    case 'amt_hi': return arr.sort((a,b)=> total(b)-total(a) );
+    case 'amt_lo': return arr.sort((a,b)=> total(a)-total(b) );
+    case 'name':   return arr.sort((a,b)=> (a.name||'').localeCompare(b.name||'','ko') );
+    case 'new':
+    default:       return arr.sort((a,b)=> latest(b).localeCompare(latest(a)) );
+  }
+}
+function renderPersons(){
+  const box = $('person-list');
+  if(!recordsReady){ box.innerHTML=loadingHtml(); return; }
+  const map = {};
+  records.forEach(r=>{
+    const k = r.name+'|'+(r.rel||'');
+    if(!map[k]) map[k]={name:r.name,rel:r.rel,in:0,out:0,recs:[]};
+    map[k][r.type]+=r.amount; map[k].recs.push(r);
+  });
+  const persons = sortPersons(Object.values(map));
+  if(!persons.length){ box.innerHTML = emptyHtml('👤','등록된 인물이 없어요','내역을 추가하면 자동 집계됩니다'); return; }
+  box.innerHTML = persons.map(p=>{
+    const bal = p.in - p.out;
+    const recs = [...p.recs].sort((a,b)=>{ const c=(a.date||'').localeCompare(b.date||''); return personSort==='old' ? c : -c; });
+    return `<div class="person">
+      <div class="ptop" onclick="this.parentNode.classList.toggle('open')">
+        <div><span class="pname">${esc(p.name)}</span> ${p.rel?`<span class="muted" style="font-size:.78rem;">${esc(p.rel)}</span>`:''}</div>
+        <div style="display:flex;align-items:center;gap:8px;"><span class="pbal ${bal>=0?'pos':'neg'}">${bal>=0?'+':'−'}${won(Math.abs(bal))}</span><span class="chev">›</span></div>
+      </div>
+      <div class="pdetail">
+        <div class="pline"><span>받음 합계</span><b class="pos">+${won(p.in)}</b></div>
+        <div class="pline"><span>보냄 합계</span><b class="neg">−${won(p.out)}</b></div>
+        <div style="border-top:1px dashed var(--line);margin:6px 0;"></div>
+        ${recs.map(r=>`<div class="ph-rec">
+          <div class="ph-main" onclick="this.parentNode.classList.toggle('open')">
+            <div class="ph-row">
+              <span class="ph-date">${fmtDate(r.date)}</span>
+              <span class="ph-sep">│</span>
+              <span class="ph-name">${esc(r.name)}</span>
+              ${r.rel?`<span class="ph-sep">·</span><span class="ph-rel">${esc(r.rel)}</span>`:''}
+              ${catTag(r.cat)}
+              <span class="ph-amt ${r.type}">${r.type==='in'?'+':'−'}${won(r.amount)}</span>
+              <span class="chev">›</span>
+            </div>
+          </div>
+          <div class="ph-detail">
+            <div class="rd-line"><span class="rd-k">✍️ 입력자</span><span class="rd-v">${esc(r.enteredBy||'미지정')}</span></div>
+            ${r.memo?`<div class="rd-line"><span class="rd-k">📝 메모</span><span class="rd-v">${esc(r.memo)}</span></div>`:''}
+            <div class="ph-detail-act">
+              <button class="ph-btn" onclick="event.stopPropagation();gmm.openEdit('${r.id}')">✏️ 수정</button>
+              <button class="ph-btn del" onclick="event.stopPropagation();gmm.delRecord('${r.id}')">🗑️ 삭제</button>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let repayFilter = 'wait';
+function renderRepay(){
+  $('ratio-val').textContent = settings.ratio+'%';
+  $('ratio').value = settings.ratio;
+  const box = $('repay-list');
+  if(!recordsReady){ box.innerHTML=loadingHtml(); return; }
+  let arr = records.filter(r=>r.type==='in');
+  if(repayFilter==='wait') arr = arr.filter(r=>!r.repaid);
+  arr.sort((a,b)=>(a.repaid-b.repaid)||sortByDate(a,b));
+  if(!arr.length){ box.innerHTML = emptyHtml('🎉', repayFilter==='wait'?'답례할 내역이 없어요':'받은 내역이 없어요', repayFilter==='wait'?'모두 답례 완료했네요!':'받음 탭에서 추가하세요'); return; }
+  box.innerHTML = arr.map(r=>{
+    const rec = Math.round(r.amount*settings.ratio/100/1000)*1000;
+    return `<div class="repay-card">
+      <div class="repay-head">
+        <div>
+          <div style="font-weight:700;">${esc(r.name)} ${catTag(r.cat)}</div>
+          <div class="muted" style="font-size:.76rem;margin-top:2px;">${r.rel?esc(r.rel)+' · ':''}${fmtDate(r.date)} · 받음 <b class="pos">${won(r.amount)}</b></div>
+        </div>
+        <span class="${r.repaid?'badge-done':'badge-wait'}">${r.repaid?'답례완료':'답례대기'}</span>
+      </div>
+      <div class="repay-rec">권장 답례액 (${settings.ratio}%): <b>${won(rec)}</b></div>
+      <button class="btn ${r.repaid?'btn-ghost':'btn-in'} btn-sm" style="margin-top:9px;" onclick="gmm.toggleRepaid('${r.id}', ${r.repaid})">
+        ${r.repaid?'↩️ 답례대기로 변경':'✅ 답례 완료 표시'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function renderCats(){
+  const box = $('cat-chips');
+  box.innerHTML = settings.cats.map(c=>`<span class="tag" style="font-size:.8rem;padding:6px 10px;display:inline-flex;align-items:center;gap:6px;">${esc(c)} <span style="cursor:pointer;color:#cbd0d8;font-weight:700;" data-del="${esc(c)}">✕</span></span>`).join('');
+  box.querySelectorAll('[data-del]').forEach(el=>{ el.onclick=()=>delCategory(el.dataset.del); });
+  fillCatSelect($('in-cat'),false); fillCatSelect($('out-cat'),false);
+  fillCatSelect($('filter-in'),true); fillCatSelect($('filter-out'),true);
+}
+async function addCategory(){
+  const inp=$('new-cat'); const v=inp.value.trim();
+  if(!v){ toast('종류 이름을 입력하세요'); return; }
+  if(settings.cats.includes(v)){ toast('이미 있는 종류예요'); return; }
+  settings.cats.push(v); inp.value=''; await saveSettings(); toast('추가됨'); renderCats();
+}
+async function delCategory(c){
+  if(!confirm(`'${c}' 종류를 삭제할까요?\n(기존 기록의 종류 표시는 유지됩니다)`)) return;
+  settings.cats = settings.cats.filter(x=>x!==c); await saveSettings(); renderCats();
+}
+
+function exportData(){
+  const blob = new Blob([JSON.stringify({records,settings},null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=`축의금관리_백업_${todayStr()}.json`; a.click();
+  URL.revokeObjectURL(url); toast('백업 파일 저장됨 📤');
+}
+
+function fillByFilter(sel){
+  if(!sel) return;
+  const cur = sel.value;
+  const names = [...new Set(records.map(r=>r.enteredBy||'미지정'))].sort((a,b)=>a.localeCompare(b,'ko'));
+  sel.innerHTML = '<option value="">전체 입력자</option>' + names.map(n=>`<option>${esc(n)}</option>`).join('');
+  if(cur && names.includes(cur)) sel.value = cur;
+}
+
+/* ===== 카카오뱅크 엑셀 가져오기 ===== */
+let kakaoRows = [];
+let kkFiles = [];            // [{name, items, skipped, ok}]
+let kkDupCount = 0;          // 중복 제거 건수
+let kkType = 'all';          // 입금/출금 탭 필터 상태
+
+// 제외 이름 목록 (localStorage 저장)
+const KK_EXCLUDE_KEY = 'gmm_kk_exclude';
+let kkExclude = loadKkExclude();      // 수동 제외 목록(영구 저장)
+let kkAutoExcluded = new Set();       // 비이름 자동 제외(파일 세션 단위)
+let kkHideExcluded = false;           // 제외 항목 숨김 토글
+let kkFuzzy = (localStorage.getItem('gmm_kk_fuzzy') !== '0');  // 유사 매칭 ON/OFF (기본 ON)
+function saveKkFuzzy(){ localStorage.setItem('gmm_kk_fuzzy', kkFuzzy ? '1' : '0'); }
+
+// 금액 기준 자동 제외 (화이트리스트: 지정 금액만 포함, 나머지 모두 제외)
+// 기본: 5만 + 10만~50만(5만 단위)
+const KK_DEFAULT_WHITELIST = [50000,100000,150000,200000,250000,300000,350000,400000,450000,500000];
+let kkAmtExceptions = (()=>{ try{ const a=JSON.parse(localStorage.getItem('gmm_kk_whitelist')); if(Array.isArray(a)) return a.map(Number); }catch(e){} return KK_DEFAULT_WHITELIST.slice(); })();
+function saveKkAmt(){ localStorage.setItem('gmm_kk_whitelist', JSON.stringify(kkAmtExceptions)); }
+
+// 입금 내역 자동 제외 (기본 ON → 출금만 표시)
+let kkExcludeIn = (localStorage.getItem('gmm_kk_excl_in') !== '0');
+function saveKkExclIn(){ localStorage.setItem('gmm_kk_excl_in', kkExcludeIn ? '1' : '0'); }
+function loadKkExclude(){
+  try{ const raw=localStorage.getItem(KK_EXCLUDE_KEY); if(raw){ const a=JSON.parse(raw); if(Array.isArray(a)) return a; } }catch(e){}
+  return [];
+}
+function saveKkExclude(){ localStorage.setItem(KK_EXCLUDE_KEY, JSON.stringify(kkExclude)); }
+
+// 사람 이름이 아닌 것으로 판단하는 키워드
+const NONNAME_KEYWORDS = ['카드','페이','충전','이자','캐시백','은행','증권','보험','대출','수수료','환급','정산','쿠팡','배달','네이버','카카오','토스','삼성','LG','SKT','KT','GS','CU','편의점','마트','주유소'];
+function isNonPersonName(name){
+  const n = (name||'').trim();
+  if(!n) return true;
+  const up = n.toUpperCase();
+  if(NONNAME_KEYWORDS.some(k=>up.includes(k.toUpperCase()))) return true; // 키워드 포함
+  if(/[0-9]/.test(n)) return true;     // 숫자 포함 (계좌이체1234 등)
+  if(/[A-Za-z]/.test(n)) return true;  // 영문 포함 (ATM, CD기 등)
+  if(n.includes('_')) return true;     // 밑줄 포함 (경찰청_부기철 등)
+  if(/[()（）]/.test(n)) return true;   // 괄호 포함 (김육자(하나카드) 등)
+  return false;
+}
+// 유사 이름 매칭: 제외어(term)가 이름(name)과 매칭되는지 판단
+function kkNameMatches(term, name){
+  if(!term || !name) return false;
+  if(name === term) return true;          // 정확 일치
+  if(!kkFuzzy) return false;              // 유사 매칭 OFF → 정확 일치만
+  const t = String(term).trim();
+  if(!t) return false;
+  // 괄호 안 내용 제거 + 밑줄을 공백으로 → 부분 일치 검사
+  const norm = s => String(s).replace(/[(（][^)）]*[)）]/g,'').replace(/_/g,' ').trim();
+  if(name.includes(t)) return true;        // 1) 부분 일치 (네이버 → 네이버페이)
+  if(norm(name).includes(t)) return true;  // 2)(3) 괄호/밑줄 무시 (김철수(하나카드), 경찰청_부기철)
+  return false;
+}
+function isKkExcluded(name){
+  if(kkAutoExcluded.has(name)) return true;
+  for(const t of kkExclude){ if(kkNameMatches(t, name)) return true; }
+  return false;
+}
+// 제외어 term에 유사 매칭되는 파싱 이름 목록
+function kkMatchedNames(term){
+  const t = String(term||'').trim(); if(!t) return [];
+  return [...new Set(kakaoRows.map(r=>r.name))].filter(n=> n!==t && kkNameMatches(t, n));
+}
+// 금액 기준 제외 판단 (화이트리스트: 포함 목록에 없으면 제외)
+function isAmountExcluded(amount){
+  if(!kkAmtExceptions.length) return false;   // 목록 비어있으면 비활성(모두 포함)
+  return !kkAmtExceptions.includes(amount);
+}
+// 행 단위 제외(이름 + 금액)
+function isRowExcluded(r){ return isKkExcluded(r.name) || isAmountExcluded(r.amount); }
+
+function onKakaoFiles(fileList){
+  const files = [...fileList].filter(f=>/\.xlsx?$/i.test(f.name));
+  if(!files.length){ toast('엑셀 파일(.xlsx)을 선택하세요'); return; }
+  if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리 로드 실패 (인터넷 확인)'); return; }
+  $('kakao-preview').innerHTML = '<div class="loading"><div class="spinner"></div>엑셀 분석 중…</div>';
+  let pending = files.length;
+  files.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+        const res = parseKakaoSheet(rows);
+        kkFiles = kkFiles.filter(f=>f.name!==file.name);   // 같은 파일명 재선택 시 교체
+        kkFiles.push({name:file.name, items:res.items, skipped:res.skipped, ok:res.ok});
+      }catch(err){
+        console.error(err);
+        kkFiles = kkFiles.filter(f=>f.name!==file.name);
+        kkFiles.push({name:file.name, items:[], skipped:0, ok:false});
+      }
+      if(--pending===0) rebuildKakao();
+    };
+    reader.onerror = ()=>{ kkFiles.push({name:file.name, items:[], skipped:0, ok:false}); if(--pending===0) rebuildKakao(); };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function rebuildKakao(){
+  // 모든 파일 합산 + 중복 제거(날짜+이름+금액)
+  const seen = new Set(); const merged = []; let dup = 0;
+  kkFiles.forEach(f=>{
+    (f.items||[]).forEach(r=>{
+      const key = `${r.date}|${r.name}|${r.amount}`;
+      if(seen.has(key)){ dup++; return; }
+      seen.add(key); merged.push(r);
+    });
+  });
+  kakaoRows = merged; kkDupCount = dup;
+  // 비이름 항목 자동 감지(세션) 재적용
+  kkAutoExcluded = new Set();
+  merged.forEach(r=>{ if(isNonPersonName(r.name)) kkAutoExcluded.add(r.name); });
+  const totalSkipped = kkFiles.reduce((a,f)=>a+(f.skipped||0),0);
+  renderKkFiles();
+  if(!merged.length){ $('kakao-preview').innerHTML='<p class="muted" style="font-size:.8rem;margin-top:12px;">분석된 거래내역이 없습니다. 파일 형식을 확인해주세요.</p>'; return; }
+  renderKakaoPreview(totalSkipped);
+}
+
+function renderKkFiles(){
+  const box = $('kk-files'); if(!box) return;
+  if(!kkFiles.length){ box.innerHTML=''; return; }
+  box.innerHTML = kkFiles.map((f,i)=>`
+    <div class="kk-file">
+      <span class="kk-file-name">📄 ${esc(f.name)} <span class="muted">(${f.items.length}건)</span>${f.ok===false?' <span style="color:var(--out);font-size:.72rem;">분석 실패</span>':''}</span>
+      <button class="kk-file-x" data-i="${i}" title="제거">✕</button>
+    </div>`).join('');
+  box.querySelectorAll('.kk-file-x').forEach(b=>{
+    b.onclick = ()=>{
+      kkFiles.splice(+b.dataset.i,1);
+      if(kkFiles.length){ rebuildKakao(); }
+      else { kakaoRows=[]; kkDupCount=0; renderKkFiles(); $('kakao-preview').innerHTML=''; }
+    };
+  });
+}
+
+function findCol(header, keys){
+  for(let i=0;i<header.length;i++){
+    const c = String(header[i]||'').replace(/\s/g,'');
+    if(keys.some(k=>c.includes(k))) return i;
+  }
+  return -1;
+}
+function parseAmt(v){
+  if(v==null) return 0;
+  const n = parseInt(String(v).replace(/[^\d]/g,''),10);
+  return isNaN(n)?0:n;
+}
+function parseDateCell(s){
+  const m = String(s).match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if(m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  return todayStr();
+}
+
+function findColExact(header, names){
+  for(let i=0;i<header.length;i++){
+    const c = String(header[i]||'').replace(/\s/g,'');
+    if(names.includes(c)) return i;
+  }
+  return -1;
+}
+
+// 거래구분(F열) 기준 자동 제외 규칙
+const KK_EXCLUDE_TX = ['캐시백','자동이체(기타)'];
+
+function parseKakaoSheet(rows){
+  // 헤더 행 탐지: '거래일시'와 '거래금액'이 함께 있는 행. 기본 구조는 11행(index 10)
+  let hi = -1;
+  for(let i=0;i<Math.min(rows.length,20);i++){
+    const r = (rows[i]||[]).map(x=>String(x||'').replace(/\s/g,''));
+    if(r.some(c=>c.includes('거래일시')) && r.some(c=>c.includes('거래금액'))){ hi=i; break; }
+  }
+  if(hi<0 && rows.length>11) hi=10;  // 안내문 10행 + 컬럼명 11행 기본 구조 fallback
+  if(hi<0) return {items:[], skipped:0, ok:false};
+
+  // 컬럼 위치: 이름으로 우선 매핑, 실패 시 고정 위치(B~H = 1~7)로 fallback
+  const H = rows[hi]||[];
+  let dateC  = findColExact(H,['거래일시']);  if(dateC<0)  dateC  = findCol(H,['거래일시','거래일','일시']);
+  let gubunC = findColExact(H,['구분']);
+  let amtC   = findColExact(H,['거래금액']);  if(amtC<0)   amtC   = findCol(H,['거래금액','금액']);
+  let txC    = findColExact(H,['거래구분']);
+  let nameC  = findColExact(H,['내용']);      if(nameC<0)  nameC  = findCol(H,['내용','받는분','보내는분','적요']);
+  let memoC  = findColExact(H,['메모']);      if(memoC<0)  memoC  = findCol(H,['메모','비고']);
+  if(dateC<0)  dateC=1;   // B
+  if(gubunC<0) gubunC=2;  // C
+  if(amtC<0)   amtC=3;    // D
+  if(txC<0)    txC=5;     // F
+  if(nameC<0)  nameC=6;   // G
+  if(memoC<0)  memoC=7;   // H
+
+  const out=[]; let skipped=0;
+  for(let i=hi+1;i<rows.length;i++){
+    const r = rows[i]; if(!r || !r.length) continue;
+    const rawAmt = String(r[amtC]||'');
+    const digits = rawAmt.replace(/[^\d]/g,'');
+    if(!digits) continue;                      // 금액 없는 행(빈 행 등) 건너뜀
+    const amount = Math.abs(parseInt(digits,10)) || 0;
+    if(amount<=0) continue;
+    const name   = String(r[nameC]||'').trim();
+    if(!name) continue;
+    const gubun  = String(r[gubunC]||'').replace(/\s/g,'');
+    const txType = String(r[txC]||'').replace(/\s/g,'');
+
+    // 구분(C열) 우선, 없으면 금액(D열) 부호로 판별
+    let type;
+    if(gubun.includes('출금')) type='out';
+    else if(gubun.includes('입금')) type='in';
+    else type = rawAmt.includes('-') ? 'out' : 'in';
+
+    // 거래구분 기준 자동 제외 (캐시백/자동이체 등)
+    if(KK_EXCLUDE_TX.some(k=>txType.includes(k.replace(/\s/g,'')))){ skipped++; continue; }
+
+    out.push({
+      date: parseDateCell(r[dateC]),
+      name, type, amount,
+      memo: String(r[memoC]||'').trim(),
+      include:true
+    });
+  }
+  return {items:out, skipped, ok:true};
+}
+
+function renderKakaoPreview(skipped){
+  const box = $('kakao-preview');
+  if(!kakaoRows.length){
+    box.innerHTML = `<p class="muted" style="font-size:.8rem;margin-top:12px;">분석된 거래내역이 없습니다.${skipped?` (자동 제외 ${skipped}건)`:''}</p>`;
+    return;
+  }
+  const catOpts = settings.cats.map(c=>`<option>${esc(c)}</option>`).join('');
+  const inCnt = kakaoRows.filter(r=>r.type==='in').length;
+  const outCnt = kakaoRows.filter(r=>r.type==='out').length;
+  const rowsHtml = kakaoRows.map((r,i)=>{
+    const mc = findContactMatch(r.name);
+    return `
+    <tr data-i="${i}">
+      <td><input type="checkbox" class="kk-check" data-i="${i}" checked></td>
+      <td>${fmtDate(r.date)}</td>
+      <td class="kk-name" data-name="${esc(r.name)}" title="클릭: 제외 추가 / 해제">${esc(r.name)}${mc?` <span class="match-badge">✅${mc.rel?' '+esc(mc.rel):''}</span>`:''}</td>
+      <td class="amt-${r.type}">${r.type==='in'?'+':'−'}${won(r.amount)}</td>
+      <td><span class="tag" style="background:${r.type==='in'?'var(--in-soft)':'var(--out-soft)'};color:${r.type==='in'?'var(--in)':'var(--out)'};">${r.type==='in'?'입금':'출금'}</span></td>
+      <td><select class="kk-cat" data-i="${i}">${catOpts}</select></td>
+      <td>${relSelectKK(i, mc&&mc.rel?mc.rel:'')}</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML = `
+    <div class="kk-summary">
+      <span>총 <b>${kkFiles.length}</b>개 파일 / <b>${kakaoRows.length}</b>건 분석 (📥받음 ${inCnt} · 📤보냄 ${outCnt})${kkDupCount?` <span class="muted">· 중복 ${kkDupCount}건 제거</span>`:''}${skipped?` <span class="muted">· 자동 제외 ${skipped}건</span>`:''}</span>
+      <label><input type="checkbox" id="kk-all" checked> 표시된 항목 전체 선택</label>
+    </div>
+    <div class="kk-filter">
+      <input type="search" id="kk-search" placeholder="🔍 이름 검색">
+      <div class="kk-exclude">
+        <div class="kk-ex-top">
+          <input type="text" id="kk-ex-input" placeholder="🚫 제외할 이름 입력" maxlength="20">
+          <button type="button" id="kk-ex-btn">추가</button>
+          <select id="kk-ex-add"></select>
+        </div>
+        <div id="kk-ex-match" class="kk-ex-match"></div>
+        <div class="kk-ex-actions">
+          <button type="button" id="kk-auto-btn">🧹 비이름 항목 자동 제외</button>
+          <button type="button" id="kk-fuzzy-btn">🔎 유사 매칭: ON</button>
+          <button type="button" id="kk-hide-btn">🙈 제외 항목 숨기기</button>
+        </div>
+        <div id="kk-ex-badges" class="kk-ex-badges"></div>
+        <div id="kk-ex-info" class="kk-ex-info"></div>
+      </div>
+      <div class="kk-amt-ex">
+        <div id="kk-amt-summary" class="kk-amt-summary"></div>
+        <div class="kk-ex-top">
+          <input type="number" id="kk-amt-exc-input" placeholder="포함 금액 추가 (예: 70000)">
+          <button type="button" id="kk-amt-exc-btn">추가</button>
+        </div>
+        <div id="kk-amt-badges" class="kk-ex-badges"></div>
+        <div id="kk-amt-info" class="kk-ex-info"></div>
+      </div>
+      <div class="kk-toggle-row">
+        <span>💸 입금 내역 자동 제외 <span class="muted" style="font-weight:400;">(출금만 표시)</span></span>
+        <label class="switch"><input type="checkbox" id="kk-excl-in"><span class="slider"></span></label>
+      </div>
+      <select id="kk-amt">
+        <option value="all">전체 금액</option>
+        <option value="10">10만원 (9~11만)</option>
+        <option value="20">20만원 (19~21만)</option>
+        <option value="30">30만원 (29~31만)</option>
+        <option value="40">40만원 (39~41만)</option>
+        <option value="50">50만원 (49~51만)</option>
+        <option value="under10">10만원 이하</option>
+        <option value="over50">50만원 초과</option>
+      </select>
+      <div class="seg kk-seg" id="kk-typeseg">
+        <button class="on" data-t="all">전체</button>
+        <button data-t="in">입금만</button>
+        <button data-t="out">출금만</button>
+      </div>
+      <div class="kk-count" id="kk-count"></div>
+    </div>
+    <div class="kk-wrap">
+      <table class="kk-table">
+        <thead><tr><th></th><th>날짜</th><th>이름</th><th>금액</th><th>구분</th><th>경조사 종류</th><th>관계</th></tr></thead>
+        <tbody id="kk-tbody">${rowsHtml}</tbody>
+      </table>
+    </div>
+    <button class="btn btn-primary" id="kk-save" style="margin-top:12px;">☁️ 선택한 항목 Firebase에 저장</button>
+  `;
+  kkType = 'all';
+  $('kk-all').onchange = (e)=>{
+    document.querySelectorAll('#kk-tbody tr').forEach(tr=>{
+      const chk = tr.querySelector('.kk-check');
+      if(tr.style.display!=='none' && !chk.disabled) chk.checked = e.target.checked;
+    });
+  };
+  // 제외 이름 등록 (입력창 + 추가 버튼 + 드롭다운)
+  const addExclude = (name)=>{
+    const v = (name||'').trim();
+    if(!v){ toast('이름을 입력하세요'); return; }
+    if(kkExclude.includes(v)){ toast('이미 제외 목록에 있어요'); return; }
+    kkExclude.push(v); saveKkExclude(); renderKkExclude(); applyKakaoFilter();
+  };
+  $('kk-ex-btn').onclick = ()=>{ addExclude($('kk-ex-input').value); $('kk-ex-input').value=''; updateKkMatchPreview(); };
+  $('kk-ex-input').onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); addExclude($('kk-ex-input').value); $('kk-ex-input').value=''; updateKkMatchPreview(); } };
+  $('kk-ex-input').oninput = updateKkMatchPreview;
+  $('kk-ex-add').onchange = (e)=>{ if(e.target.value){ addExclude(e.target.value); e.target.value=''; } };
+  // 유사 매칭 ON/OFF 토글
+  $('kk-fuzzy-btn').onclick = ()=>{
+    kkFuzzy = !kkFuzzy; saveKkFuzzy();
+    renderKkExclude(); updateKkMatchPreview(); applyKakaoFilter();
+    toast(kkFuzzy ? '유사 매칭 켜짐 🔎' : '유사 매칭 꺼짐 (정확히 일치만)');
+  };
+  // 비이름 항목 자동 제외 버튼
+  $('kk-auto-btn').onclick = ()=>{
+    let added=0;
+    kakaoRows.forEach(r=>{ if(!isKkExcluded(r.name) && isNonPersonName(r.name)){ kkAutoExcluded.add(r.name); added++; } });
+    applyKakaoFilter();
+    toast(added ? `비이름 항목 ${added}개 이름 제외됨` : '추가로 제외할 항목이 없어요');
+  };
+  // 제외 항목 보기/숨기기 토글
+  kkHideExcluded = false;
+  $('kk-hide-btn').onclick = ()=>{
+    kkHideExcluded = !kkHideExcluded;
+    const b=$('kk-hide-btn');
+    b.textContent = kkHideExcluded ? '👁 제외 항목 보기' : '🙈 제외 항목 숨기기';
+    b.classList.toggle('on', kkHideExcluded);
+    applyKakaoFilter();
+  };
+  // 이름 클릭 → 제외 추가/해제 (수동)
+  document.querySelectorAll('#kk-tbody .kk-name').forEach(td=>{
+    td.onclick = ()=>{
+      const nm = td.dataset.name;
+      if(kkExclude.includes(nm)){ kkExclude = kkExclude.filter(n=>n!==nm); saveKkExclude(); toast(`'${nm}' 제외 해제`); }
+      else if(kkAutoExcluded.has(nm)){ kkAutoExcluded.delete(nm); toast(`'${nm}' 포함으로 변경`); }
+      else { kkExclude.push(nm); saveKkExclude(); toast(`'${nm}' 제외 목록 추가`); }
+      renderKkExclude(); applyKakaoFilter();
+    };
+  });
+  // 관계 드롭다운: 기타 선택 시 직접입력칸 표시
+  document.querySelectorAll('#kk-tbody .kk-rel-sel').forEach(sel=>{
+    sel.onchange = ()=>{
+      const etc = document.querySelector(`.kk-rel-etc[data-i="${sel.dataset.i}"]`);
+      if(sel.value==='기타'){ etc.classList.remove('hidden'); etc.focus(); }
+      else { etc.classList.add('hidden'); etc.value=''; }
+    };
+  });
+  renderKkExclude();
+  // 금액 기준 자동 제외 (화이트리스트)
+  $('kk-amt-exc-btn').onclick = addAmtException;
+  $('kk-amt-exc-input').onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); addAmtException(); } };
+  renderKkAmt();
+  // 입금 내역 자동 제외 토글
+  $('kk-excl-in').checked = kkExcludeIn;
+  $('kk-excl-in').onchange = ()=>{ kkExcludeIn = $('kk-excl-in').checked; saveKkExclIn(); applyKakaoFilter(); };
+  $('kk-search').oninput = applyKakaoFilter;
+  $('kk-amt').onchange = applyKakaoFilter;
+  document.querySelectorAll('#kk-typeseg button').forEach(b=>{
+    b.onclick = ()=>{
+      document.querySelectorAll('#kk-typeseg button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on'); kkType = b.dataset.t; applyKakaoFilter();
+    };
+  });
+  $('kk-save').onclick = saveKakao;
+  applyKakaoFilter();
+}
+
+function matchKkAmount(a, f){
+  switch(f){
+    case '10': return a>=90000  && a<=110000;
+    case '20': return a>=190000 && a<=210000;
+    case '30': return a>=290000 && a<=310000;
+    case '40': return a>=390000 && a<=410000;
+    case '50': return a>=490000 && a<=510000;
+    case 'under10': return a<=100000;
+    case 'over50':  return a>500000;
+    default: return true;
+  }
+}
+
+function renderKkExclude(){
+  const sel = $('kk-ex-add'); if(!sel) return;
+  const names = [...new Set(kakaoRows.map(r=>r.name))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const avail = names.filter(n=>!kkExclude.includes(n));
+  sel.innerHTML = '<option value="">➕ 제외할 이름 추가…</option>' + avail.map(n=>`<option>${esc(n)}</option>`).join('');
+  const badges = $('kk-ex-badges');
+  if(!kkExclude.length){
+    badges.innerHTML = '<span class="muted" style="font-size:.76rem;">제외할 이름이 없습니다. 위에서 추가하세요.</span>';
+  }else{
+    badges.innerHTML = kkExclude.map(n=>{
+      const cnt = kkMatchedNames(n).length;
+      return `<span class="ex-badge">${esc(n)}${cnt?` <span class="ex-cnt" title="유사 매칭 ${cnt}건">+${cnt}</span>`:''} <span class="x" data-n="${esc(n)}" title="제외 목록에서 삭제">✕</span></span>`;
+    }).join('');
+    badges.querySelectorAll('.x').forEach(x=>{
+      x.onclick = ()=>{ kkExclude = kkExclude.filter(n=>n!==x.dataset.n); saveKkExclude(); renderKkExclude(); applyKakaoFilter(); };
+    });
+  }
+  const fb = $('kk-fuzzy-btn');
+  if(fb){ fb.textContent = kkFuzzy ? '🔎 유사 매칭: ON' : '🔎 유사 매칭: OFF'; fb.classList.toggle('on', kkFuzzy); }
+}
+
+function updateKkMatchPreview(){
+  const el = $('kk-ex-match'); if(!el) return;
+  const t = ($('kk-ex-input').value||'').trim();
+  if(!t){ el.innerHTML=''; return; }
+  if(!kkFuzzy){ el.innerHTML='<span class="muted">유사 매칭 OFF · 정확히 일치하는 이름만 제외됩니다</span>'; return; }
+  const matched = kkMatchedNames(t);
+  el.innerHTML = matched.length
+    ? `🔗 매칭: ${matched.map(esc).join(', ')} <b>(${matched.length}건)</b>`
+    : '<span class="muted">유사 매칭되는 이름이 없습니다</span>';
+}
+
+function renderKkAmt(){
+  const box = $('kk-amt-badges'); if(!box) return;
+  const sorted = kkAmtExceptions.slice().sort((a,b)=>a-b);
+  const fmtMan = a => a%10000===0 ? `${a/10000}만` : won(a);
+  // 규칙 요약
+  const sum = $('kk-amt-summary');
+  if(sum){
+    sum.innerHTML = sorted.length
+      ? `📋 포함: <b>${sorted.map(fmtMan).join(', ')}</b> 만 등록<br><span class="muted">그 외 금액은 모두 자동 제외</span>`
+      : '📋 금액 제외 비활성 (모든 금액 포함)';
+  }
+  // 포함 금액 뱃지
+  if(!sorted.length){
+    box.innerHTML = '<span class="muted" style="font-size:.76rem;">포함 금액 없음 (제외 비활성)</span>';
+  }else{
+    box.innerHTML = sorted.map(a=>`<span class="ex-badge">${won(a)} <span class="x" data-a="${a}" title="포함 목록에서 제거">✕</span></span>`).join('');
+    box.querySelectorAll('.x').forEach(x=>{
+      x.onclick = ()=>{ kkAmtExceptions = kkAmtExceptions.filter(a=>a!==+x.dataset.a); saveKkAmt(); renderKkAmt(); applyKakaoFilter(); };
+    });
+  }
+}
+function addAmtException(){
+  const v = parseInt(($('kk-amt-exc-input').value||'').replace(/[^\d]/g,''),10);
+  if(!v || v<=0){ toast('포함할 금액을 입력하세요'); return; }
+  if(kkAmtExceptions.includes(v)){ toast('이미 포함 목록에 있어요'); return; }
+  kkAmtExceptions.push(v); saveKkAmt(); $('kk-amt-exc-input').value='';
+  renderKkAmt(); applyKakaoFilter();
+}
+
+function applyKakaoFilter(){
+  const q  = ($('kk-search').value||'').trim().toLowerCase();
+  const af = $('kk-amt').value;
+  let shown = 0, exCount = 0, amtExCount = 0;
+  document.querySelectorAll('#kk-tbody tr').forEach(tr=>{
+    const r = kakaoRows[+tr.dataset.i];
+    const incomeHidden = kkExcludeIn && r.type==='in';   // 입금 자동 제외
+    const excluded = isRowExcluded(r);
+    const off = excluded || incomeHidden;
+    const chk = tr.querySelector('.kk-check');
+    if(chk){ if(off){ chk.checked=false; chk.disabled=true; } else { chk.disabled=false; } }
+    if(excluded) exCount++;
+    if(isAmountExcluded(r.amount)) amtExCount++;
+    let ok = true;
+    if(q && !r.name.toLowerCase().includes(q)) ok=false;
+    if(ok && kkType!=='all' && r.type!==kkType) ok=false;
+    if(ok && !matchKkAmount(r.amount, af)) ok=false;
+    if(ok && incomeHidden) ok=false;                 // 입금 자동 제외: 항상 숨김
+    if(ok && excluded && kkHideExcluded) ok=false;   // 기타 제외: 숨김 토글
+    tr.classList.toggle('kk-excluded', excluded);     // 제외 행: 회색 처리
+    tr.style.display = ok ? '' : 'none';
+    if(ok) shown++;
+  });
+  $('kk-count').innerHTML = `총 <b>${kakaoRows.length}</b>건 중 <b>${shown}</b>건 표시`;
+  const info = $('kk-ex-info');
+  if(info) info.innerHTML = exCount ? `🚫 <b>${exCount}건</b> 자동 제외됨 (체크 해제 + 회색)${kkHideExcluded?' · 숨김 중':''}` : '';
+  const ainfo = $('kk-amt-info');
+  if(ainfo) ainfo.innerHTML = amtExCount ? `💰 금액 기준으로 <b>${amtExCount}건</b> 자동 제외됨` : '';
+}
+
+async function saveKakao(){
+  const checked = [...document.querySelectorAll('.kk-check')].filter(c=>c.checked);
+  if(!checked.length){ toast('등록할 항목을 선택하세요'); return; }
+  const btn = $('kk-save'); btn.disabled=true; const orig=btn.textContent; btn.textContent='저장 중…';
+  try{
+    const items = checked.map(c=>{
+      const i = +c.dataset.i; const r = kakaoRows[i];
+      if(isRowExcluded(r) || (kkExcludeIn && r.type==='in')) return null;   // 제외(이름+금액+입금) 항목은 저장 안 함
+      const rsel = document.querySelector(`.kk-rel-sel[data-i="${i}"]`);
+      let rel = '';
+      if(rsel) rel = rsel.value==='기타' ? (document.querySelector(`.kk-rel-etc[data-i="${i}"]`).value||'').trim() : rsel.value;
+      return {
+        ...r,
+        cat: document.querySelector(`.kk-cat[data-i="${i}"]`).value,
+        rel
+      };
+    }).filter(Boolean);
+    if(!items.length){ toast('저장할 항목이 없습니다 (제외 목록 확인)'); btn.disabled=false; btn.textContent=orig; return; }
+    let saved=0;
+    for(let s=0;s<items.length;s+=400){
+      const batch = writeBatch(db);
+      const chunk = items.slice(s,s+400);
+      chunk.forEach(it=>{
+        batch.set(doc(recCol), {
+          type:it.type, name:it.name, rel:it.rel, cat:it.cat,
+          date:it.date, amount:it.amount, memo:it.memo,
+          enteredBy: myName||'미지정', repaid:false, createdAt:serverTimestamp()
+        });
+      });
+      await batch.commit();
+      saved += chunk.length;
+    }
+    kakaoRows=[];
+    $('kakao-preview').innerHTML = `<div class="kk-done"><div class="em">✅</div><div style="font-weight:700;margin-top:6px;">${saved}건 저장 완료!</div><div class="muted" style="font-size:.8rem;margin-top:4px;">대시보드와 받음/보냄 목록에서 확인하세요.</div></div>`;
+    toast(`${saved}건 등록 완료 🎉`);
+  }catch(e){
+    console.error(e); toast('저장 실패: '+(e.code||e.message));
+    btn.disabled=false; btn.textContent=orig;
+  }
+}
+
+function renderAll(){
+  renderStats(); renderRecent(); renderPersons();
+  fillByFilter($('byfilter-in')); fillByFilter($('byfilter-out'));
+  renderList('in'); renderList('out'); renderRepay(); renderCats();
+}
+
+/* ===== 폼 초기화 ===== */
+function initForms(){
+  $('form-in').innerHTML = buildForm('in');
+  $('form-out').innerHTML = buildForm('out');
+  ['in','out'].forEach(type=>{
+    $(type+'-date').value = todayStr();
+    setupQuick(type);
+    bindRel(type);
+    $(type+'-submit').onclick = ()=>addRecord(type);
+    // 연락처 자동완성: 이름 선택/입력 시 관계 자동 채움
+    $(type+'-name').addEventListener('change', ()=>{
+      const c = contacts.find(x=>x.name===$(type+'-name').value.trim());
+      if(c && c.rel && !getRel(type)) setRel(type, c.rel);
+    });
+  });
+  bindRel('e');   // 수정 폼 관계 드롭다운
+  $('search-in').oninput = ()=>renderList('in');
+  $('search-out').oninput = ()=>renderList('out');
+  $('filter-in').onchange = ()=>renderList('in');
+  $('filter-out').onchange = ()=>renderList('out');
+  $('byfilter-in').onchange = ()=>renderList('in');
+  $('byfilter-out').onchange = ()=>renderList('out');
+  // 로그인 / 회원가입 / 로그아웃
+  $('me-chip').onclick = logout;
+  $('login-btn').onclick = doLogin;
+  $('signup-btn').onclick = doSignup;
+  $('to-signup').onclick = ()=>switchAuth('signup');
+  $('to-login').onclick = ()=>switchAuth('login');
+  $('login-pass').onkeydown = (e)=>{ if(e.key==='Enter') doLogin(); };
+  $('signup-pass2').onkeydown = (e)=>{ if(e.key==='Enter') doSignup(); };
+  // 비밀번호 표시/숨김
+  $('login-pass-eye').onclick = ()=>{
+    const inp=$('login-pass'); const show = inp.type==='password';
+    inp.type = show?'text':'password';
+    $('login-pass-eye').textContent = show?'🙈':'👁️';
+  };
+  // 로그인 상태 유지 체크박스
+  $('login-remember').onchange = ()=>{
+    if($('login-remember').checked){ localStorage.setItem(REMEMBER_KEY,'1'); }
+    else { localStorage.setItem(REMEMBER_KEY,'0'); localStorage.removeItem(LASTNAME_KEY); updateLoginNames(); }
+  };
+  // 비밀번호 찾기
+  $('to-find').onclick = ()=>switchAuth('find');
+  $('find-to-login').onclick = ()=>switchAuth('login');
+  $('find-btn').onclick = doFindPassword;
+  $('find-phone').onkeydown = (e)=>{ if(e.key==='Enter') doFindPassword(); };
+  // 비밀번호 변경
+  $('pw-change-btn').onclick = changePassword;
+  $('pw-new2').onkeydown = (e)=>{ if(e.key==='Enter') changePassword(); };
+  // 관리자
+  $('admin-delall').onclick = adminDeleteAllData;
+  // 순차액 표시/숨김 토글
+  $('net-toggle').onclick = ()=>{ netHidden = !netHidden; localStorage.setItem('gmm_net_hidden', netHidden?'1':'0'); renderNet(); };
+  // 인물별 히스토리 정렬
+  $('person-sort').value = personSort;
+  $('person-sort').onchange = ()=>{ personSort = $('person-sort').value; localStorage.setItem('gmm_person_sort', personSort); renderPersons(); };
+  // 연락처 관리
+  $('c-save').onclick = saveContact;
+  $('c-search').oninput = renderContacts;
+  $('c-rel').onkeydown = (e)=>{ if(e.key==='Enter') saveContact(); };
+  $('c-csv-btn').onclick = ()=>$('c-csv-file').click();
+  $('c-vcf-btn').onclick = ()=>$('c-vcf-file').click();
+  $('c-csv-file').onchange = (e)=>{ const f=e.target.files[0]; if(f) readTextSmart(f, txt=>bulkAddContacts(parseCsv(txt))); e.target.value=''; };
+  $('c-vcf-file').onchange = (e)=>{ const f=e.target.files[0]; if(f) readTextSmart(f, txt=>bulkAddContacts(parseVcf(txt))); e.target.value=''; };
+  $('btn-addcat').onclick = addCategory;
+  $('btn-export').onclick = exportData;
+  // 카카오뱅크 가져오기 (다중 파일 + 드래그앤드롭)
+  $('btn-kakao-file').onclick = ()=>$('kakao-file').click();
+  $('kakao-file').onchange = (e)=>{ onKakaoFiles(e.target.files); e.target.value=''; };
+  const drop = $('kk-drop');
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', ()=>drop.classList.remove('drag'));
+  drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('drag'); const fs=e.dataTransfer.files; if(fs&&fs.length) onKakaoFiles(fs); });
+  // 수정 모달
+  setupQuick('e');
+  $('e-cancel').onclick = closeEdit;
+  $('e-save').onclick = saveEdit;
+  $('edit-modal').onclick = (ev)=>{ if(ev.target===$('edit-modal')) closeEdit(); };
+  $('ratio').oninput = async (e)=>{ settings.ratio=+e.target.value; $('ratio-val').textContent=settings.ratio+'%'; renderRepay(); clearTimeout(window._rt); window._rt=setTimeout(saveSettings,500); };
+  document.querySelectorAll('#repay-seg button').forEach(b=>{
+    b.onclick=()=>{ document.querySelectorAll('#repay-seg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); repayFilter=b.dataset.rf; renderRepay(); };
+  });
+}
+
+/* ===== Firestore 실시간 구독 ===== */
+function startSync(){
+  onSnapshot(recCol, snap=>{
+    records = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    recordsReady = true; setConn('on'); renderAll();
+  }, err=>{
+    console.error('records onSnapshot error',err); setConn('off');
+    toast('데이터 로드 실패: '+err.code);
+  });
+  onSnapshot(settingsRef, snap=>{
+    if(snap.exists()){
+      const d = snap.data();
+      settings = { cats: (d.cats&&d.cats.length)?d.cats:DEFAULT_CATS.slice(), ratio: d.ratio||100 };
+    }else{
+      settings = { cats: DEFAULT_CATS.slice(), ratio: 100 };
+      setDoc(settingsRef, settings).catch(e=>console.error(e));
+    }
+    settingsReady = true; renderAll();
+  }, err=>{ console.error('settings onSnapshot error',err); });
+}
+
+/* ===== PWA (홈 화면 추가) ===== */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault(); deferredPrompt = e;
+  const ib=$('pwa-install-btn'); if(ib) ib.classList.remove('hidden');
+  if(localStorage.getItem('gmm_pwa_dismiss')!=='1' && !window.matchMedia('(display-mode: standalone)').matches){
+    const b=$('pwa-banner'); if(b) b.classList.remove('hidden');
+  }
+});
+window.addEventListener('appinstalled', ()=>{ const b=$('pwa-banner'); if(b) b.classList.add('hidden'); deferredPrompt=null; });
+
+function setupPWA(){
+  // 1) manifest 인라인 주입 (💰 이모지 SVG 아이콘)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#6c5ce7"/><text x="256" y="312" font-size="300" text-anchor="middle">💰</text></svg>`;
+  const icon = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  const manifest = {
+    name:'경조사 관리', short_name:'경조사', lang:'ko',
+    start_url:'/', display:'standalone',
+    background_color:'#6c5ce7', theme_color:'#6c5ce7',
+    icons:[
+      {src:icon, sizes:'192x192', type:'image/svg+xml', purpose:'any maskable'},
+      {src:icon, sizes:'512x512', type:'image/svg+xml', purpose:'any maskable'}
+    ]
+  };
+  const ml=document.createElement('link'); ml.rel='manifest';
+  ml.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(manifest));
+  document.head.appendChild(ml);
+  const al=document.createElement('link'); al.rel='apple-touch-icon'; al.href=icon; document.head.appendChild(al);
+
+  // 2) 서비스 워커 인라인 등록 (https 호스팅 환경에서 동작 / 오프라인 페이지 + 기본 캐싱)
+  if('serviceWorker' in navigator){
+    const swCode = [
+      "const C='gmm-v1';",
+      "self.addEventListener('install',e=>self.skipWaiting());",
+      "self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));",
+      "self.addEventListener('fetch',e=>{",
+      " if(e.request.method!=='GET')return;",
+      " e.respondWith(caches.open(C).then(c=>c.match(e.request).then(hit=>{",
+      "  const net=fetch(e.request).then(r=>{try{if(r&&r.status===200&&e.request.url.startsWith('http'))c.put(e.request,r.clone());}catch(_){}return r;}).catch(()=>hit||off(e.request));",
+      "  return hit||net;",
+      " })));",
+      "});",
+      "function off(req){",
+      " if(req.mode==='navigate'||(req.headers.get('accept')||'').includes('text/html')){",
+      "  return new Response('<!doctype html><html lang=\"ko\"><meta charset=\"utf-8\"><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>오프라인</title><body style=\"margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;background:#6c5ce7;color:#fff;text-align:center;padding:20px\"><div style=\"font-size:3rem\">📡</div><h2>인터넷 연결을 확인해주세요</h2><p>오프라인 상태입니다.<br>연결 후 다시 시도해 주세요.</p></body>',{headers:{'Content-Type':'text/html; charset=utf-8'}});",
+      " }",
+      " return new Response('',{status:503});",
+      "}"
+    ].join('\n');
+    try{
+      const url = URL.createObjectURL(new Blob([swCode], {type:'text/javascript'}));
+      navigator.serviceWorker.register(url).catch(err=>console.warn('SW 등록 실패(https 호스팅 필요):', err.message||err));
+    }catch(e){ console.warn('SW 미지원/제한:', e); }
+  }
+
+  // 3) 오프라인 오버레이
+  const updateOnline = ()=>{ const o=$('offline-overlay'); if(o) o.classList.toggle('hidden', navigator.onLine); };
+  window.addEventListener('online', updateOnline);
+  window.addEventListener('offline', updateOnline);
+  updateOnline();
+
+  // 4) 설치 안내 배너
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const dismissed = localStorage.getItem('gmm_pwa_dismiss')==='1';
+  if(!standalone && !dismissed) $('pwa-banner').classList.remove('hidden');
+  $('pwa-guide-btn').onclick = ()=>$('pwa-modal').classList.add('show');
+  $('pwa-modal-close').onclick = ()=>$('pwa-modal').classList.remove('show');
+  $('pwa-modal').onclick = (e)=>{ if(e.target===$('pwa-modal')) $('pwa-modal').classList.remove('show'); };
+  $('pwa-dismiss-btn').onclick = ()=>{ localStorage.setItem('gmm_pwa_dismiss','1'); $('pwa-banner').classList.add('hidden'); };
+  $('pwa-install-btn').onclick = async ()=>{
+    if(!deferredPrompt){ $('pwa-modal').classList.add('show'); return; }  // iOS 등은 수동 안내
+    deferredPrompt.prompt();
+    try{ await deferredPrompt.userChoice; }catch(e){}
+    deferredPrompt=null; $('pwa-install-btn').classList.add('hidden'); $('pwa-banner').classList.add('hidden');
+  };
+}
+
+/* ===== 시작 ===== */
+initForms();
+seedAdmin();
+startSync();
+startUsersSync();
+startContactsSync();
+setupPWA();
+// 세션 복원 (localStorage=상태유지 / sessionStorage=이번 세션만)
+let sess=null;
+try{ sess = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY)); }catch(e){}
+if(sess && sess.name){
+  currentUser = sess; myName = sess.name;
+  $('me-name').textContent = sess.name;
+  hideAuth();
+}else{
+  initLoginPrefs();   // 이름 자동입력 / 체크박스 복원
+  showAuth();
+}
+renderAdmin();
+renderAll();
+</script>
+</body>
+</html>
