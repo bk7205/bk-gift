@@ -311,7 +311,7 @@
   <div class="wrap">
     <h1>💰 경조사 축의금 관리</h1>
     <div class="sub">
-      <span class="dot" id="conn-dot"></span><span id="conn-text">Firebase 연결 중…</span>
+      <span class="dot" id="conn-dot"></span><span id="conn-text">불러오는 중…</span>
       <span class="me-chip" id="me-chip" title="로그아웃">👤 <b id="me-name">-</b> <span style="opacity:.8">🚪</span></span>
     </div>
   </div>
@@ -435,7 +435,7 @@
 
     <div class="card">
       <h2>☁️ 데이터 정보</h2>
-      <p class="muted" style="font-size:.8rem;margin-top:0;">데이터는 Firebase Firestore에 실시간 저장됩니다. 같은 설정의 다른 기기에서도 자동 동기화돼요.</p>
+      <p class="muted" style="font-size:.8rem;margin-top:0;">데이터는 이 기기(브라우저)에만 저장됩니다. 다른 기기와 동기화되지 않으니 아래 'JSON 백업'으로 주기적으로 보관하세요.</p>
       <button class="btn btn-ghost btn-sm" id="btn-export" style="margin-bottom:8px;">📤 데이터 내보내기 (JSON 백업)</button>
       <p class="muted" style="font-size:.72rem;text-align:center;margin:6px 0 0;">프로젝트: tndj-61fb0</p>
     </div>
@@ -567,28 +567,12 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getFirestore, collection, doc, addDoc, deleteDoc, updateDoc, setDoc,
-  onSnapshot, serverTimestamp, writeBatch, getDoc, getDocs
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-/* ===== Firebase 설정 ===== */
-const firebaseConfig = {
-  apiKey: "AIzaSyAjSSHqqX5Ac4HcV1ao4jiQWm0OYhpyVzY",
-  authDomain: "tndj-61fb0.firebaseapp.com",
-  projectId: "tndj-61fb0",
-  storageBucket: "tndj-61fb0.firebasestorage.app",
-  messagingSenderId: "1049136604795",
-  appId: "1:1049136604795:web:b1e79382b5908da823a4de",
-  measurementId: "G-CDWGMGSE44"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const recCol = collection(db, "records");
-const settingsRef = doc(db, "settings", "config");
-const usersCol = collection(db, "users");
-const contactsCol = collection(db, "contacts");
+/* ===== 로컬 저장소 (이 기기 localStorage 전용) ===== */
+const LS_REC = 'gmm_records', LS_SET = 'gmm_settings', LS_CON = 'gmm_contacts', LS_USR = 'gmm_users';
+function lsGet(k, def){ try{ const v = JSON.parse(localStorage.getItem(k)); return v==null ? def : v; }catch(e){ return def; } }
+function lsSet(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+const nowIso = ()=>new Date().toISOString();
 
 /* ===== 상태 ===== */
 const DEFAULT_CATS = ['결혼','돌잔치','장례','생일','개업','집들이','기타'];
@@ -631,7 +615,7 @@ function $(id){ return document.getElementById(id); }
 function setConn(state){
   const dot=$('conn-dot'), txt=$('conn-text');
   dot.className='dot '+(state==='on'?'on':state==='off'?'off':'');
-  txt.textContent = state==='on'?'실시간 동기화 중':state==='off'?'연결 오류 — 새로고침 해주세요':'Firebase 연결 중…';
+  txt.textContent = state==='on'?'이 기기에만 저장됨':state==='off'?'저장소 오류 — 새로고침 해주세요':'불러오는 중…';
 }
 
 /* ===== 탭 ===== */
@@ -723,7 +707,8 @@ function setupQuick(type){
   });
 }
 
-/* ===== CRUD (Firestore) ===== */
+/* ===== CRUD (localStorage) ===== */
+function persistRecords(){ lsSet(LS_REC, records); renderAll(); }
 async function addRecord(type){
   const name = $(type+'-name').value.trim();
   const amt = parseInt($(type+'-amt').value,10);
@@ -731,7 +716,8 @@ async function addRecord(type){
   if(!amt || amt<=0){ toast('금액을 입력하세요'); return; }
   const btn = $(type+'-submit'); btn.disabled=true;
   try{
-    await addDoc(recCol, {
+    records.push({
+      id: genId(),
       type, name,
       rel: getRel(type),
       cat: $(type+'-cat').value,
@@ -740,36 +726,37 @@ async function addRecord(type){
       memo: $(type+'-memo').value.trim(),
       enteredBy: myName || '미지정',
       repaid: false,
-      createdAt: serverTimestamp()
+      createdAt: nowIso()
     });
+    persistRecords();
     ['name','amt','memo'].forEach(f=>$(type+'-'+f).value='');
     setRel(type, '');
     $(type+'-date').value = todayStr();
     toast(type==='in'?'받은 내역 저장됨 ✅':'보낸 내역 저장됨 ✅');
-  }catch(e){ console.error(e); toast('저장 실패: '+e.code); }
+  }catch(e){ console.error(e); toast('저장 실패: '+(e.name||e.message)); }
   finally{ btn.disabled=false; }
 }
 async function delRecord(id){
   if(!confirm('이 내역을 삭제할까요?')) return;
-  try{ await deleteDoc(doc(db,"records",id)); toast('삭제됨'); }
-  catch(e){ console.error(e); toast('삭제 실패'); }
+  records = records.filter(r=>r.id!==id); persistRecords(); toast('삭제됨');
 }
 async function toggleRepaid(id, cur){
-  try{ await updateDoc(doc(db,"records",id), {repaid:!cur}); }
-  catch(e){ console.error(e); toast('변경 실패'); }
+  const r = records.find(x=>x.id===id); if(!r) return;
+  r.repaid = !cur; persistRecords();
 }
 async function saveSettings(){
-  try{ await setDoc(settingsRef, settings); }
+  try{ lsSet(LS_SET, settings); }
   catch(e){ console.error(e); toast('설정 저장 실패'); }
 }
 
 /* ===== 인증 ===== */
-async function seedAdmin(){
-  try{
-    const ref = doc(db,"users",ADMIN_NAME);
-    const s = await getDoc(ref);
-    if(!s.exists()) await setDoc(ref,{name:ADMIN_NAME, pass:hashPass(ADMIN_PASS), role:'admin', createdAt:serverTimestamp()});
-  }catch(e){ console.error('seedAdmin',e); }
+function saveUsers(){ lsSet(LS_USR, usersList); renderAdmin(); updateLoginNames(); }
+function seedAdmin(){
+  usersList = lsGet(LS_USR, []);
+  if(!usersList.some(u=>u.name===ADMIN_NAME)){
+    usersList.push({name:ADMIN_NAME, pass:hashPass(ADMIN_PASS), role:'admin', createdAt:nowIso()});
+    lsSet(LS_USR, usersList);
+  }
 }
 function showAuth(){ $('auth-screen').classList.remove('hidden'); switchAuth('login'); }
 function hideAuth(){ $('auth-screen').classList.add('hidden'); }
@@ -787,8 +774,8 @@ async function doFindPassword(){
   const fr = $('find-result'); fr.innerHTML=''; authErr('');
   if(!name || !phone){ authErr('이름과 전화번호를 입력하세요'); return; }
   try{
-    const us = await getDoc(doc(db,"users",name));
-    const matched = us.exists() && contacts.some(c=>
+    const us = usersList.find(u=>u.name===name);
+    const matched = !!us && contacts.some(c=>
       (c.name===name || normName(c.name)===normName(name)) &&
       String(c.phone||'').replace(/[^\d]/g,'')===phone
     );
@@ -797,7 +784,7 @@ async function doFindPassword(){
       return;
     }
     const temp = gen6();
-    await updateDoc(doc(db,"users",name), {pass:hashPass(temp)});
+    us.pass = hashPass(temp); saveUsers();
     fr.innerHTML = `<div class="find-ok">임시 비밀번호: <b>${temp}</b><br><span class="muted">이 비밀번호로 로그인 후 설정 → 비밀번호 변경에서 바꿔주세요.</span></div>`;
   }catch(e){ console.error(e); authErr('처리 실패: '+(e.code||e.message)); }
 }
@@ -826,9 +813,8 @@ async function doLogin(){
   if(!name || !pass){ authErr('이름과 비밀번호를 입력하세요'); return; }
   authErr('');
   try{
-    const s = await getDoc(doc(db,"users",name));
-    if(!s.exists()){ authErr('존재하지 않는 사용자예요'); return; }
-    const u = s.data();
+    const u = usersList.find(x=>x.name===name);
+    if(!u){ authErr('존재하지 않는 사용자예요'); return; }
     if(u.pass !== hashPass(pass)){ authErr('비밀번호가 일치하지 않아요'); return; }
     const remember = $('login-remember').checked;
     $('login-pass').value=''; setSession(u, remember); toast(`${name}님 환영합니다 👋`);
@@ -842,11 +828,9 @@ async function doSignup(){
   if(p1 !== p2){ authErr('비밀번호가 일치하지 않아요'); return; }
   authErr('');
   try{
-    const ref = doc(db,"users",name);
-    const s = await getDoc(ref);
-    if(s.exists()){ authErr('이미 사용 중인 이름이에요'); return; }
-    const u = {name, pass:hashPass(p1), role:'user', createdAt:serverTimestamp()};
-    await setDoc(ref, u);
+    if(usersList.some(x=>x.name===name)){ authErr('이미 사용 중인 이름이에요'); return; }
+    const u = {name, pass:hashPass(p1), role:'user', createdAt:nowIso()};
+    usersList.push(u); saveUsers();
     $('signup-pass').value=''; $('signup-pass2').value=''; $('signup-name').value='';
     setSession(u, $('login-remember').checked); toast(`${name}님 가입 완료 🎉`);
   }catch(e){ console.error(e); authErr('가입 실패: '+(e.code||e.message)); }
@@ -878,10 +862,6 @@ function updateLoginNames(){
 }
 
 /* ===== 관리자 ===== */
-function startUsersSync(){
-  onSnapshot(usersCol, snap=>{ usersList = snap.docs.map(d=>d.data()); renderAdmin(); updateLoginNames(); },
-    err=>console.error('users onSnapshot',err));
-}
 function renderAdmin(){
   const card = $('admin-card'); if(!card) return;
   if(!currentUser || currentUser.role!=='admin'){ card.classList.add('hidden'); return; }
@@ -903,7 +883,8 @@ function renderAdmin(){
 async function adminResetPw(name){
   if(!confirm(`'${name}'님의 비밀번호를 임시 비밀번호 '1234'로 초기화할까요?`)) return;
   try{
-    await updateDoc(doc(db,"users",name), {pass:hashPass('1234')});
+    const u = usersList.find(x=>x.name===name); if(!u){ toast('사용자를 찾을 수 없어요'); return; }
+    u.pass = hashPass('1234'); saveUsers();
     alert(`'${name}'님의 임시 비밀번호는 '1234' 입니다.\n로그인 후 비밀번호를 변경하도록 안내해 주세요.`);
     toast(`'${name}' 비밀번호 초기화됨 (1234)`);
   }catch(e){ console.error(e); toast('실패: '+(e.code||e.message)); }
@@ -915,10 +896,10 @@ async function changePassword(){
   if(np !== np2){ toast('새 비밀번호가 일치하지 않아요'); return; }
   const btn = $('pw-change-btn'); btn.disabled=true;
   try{
-    const s = await getDoc(doc(db,"users",currentUser.name));
-    if(!s.exists()){ toast('계정을 찾을 수 없어요'); return; }
-    if(s.data().pass !== hashPass(cur)){ toast('현재 비밀번호가 일치하지 않아요'); return; }
-    await updateDoc(doc(db,"users",currentUser.name), {pass:hashPass(np)});
+    const u = usersList.find(x=>x.name===currentUser.name);
+    if(!u){ toast('계정을 찾을 수 없어요'); return; }
+    if(u.pass !== hashPass(cur)){ toast('현재 비밀번호가 일치하지 않아요'); return; }
+    u.pass = hashPass(np); saveUsers();
     $('pw-cur').value=''; $('pw-new').value=''; $('pw-new2').value='';
     toast('비밀번호가 변경되었습니다 ✅');
   }catch(e){ console.error(e); toast('변경 실패: '+(e.code||e.message)); }
@@ -927,34 +908,21 @@ async function changePassword(){
 async function adminDelUser(name){
   if(name===ADMIN_NAME){ toast('관리자 계정은 삭제할 수 없어요'); return; }
   if(!confirm(`'${name}' 사용자를 삭제할까요?`)) return;
-  try{ await deleteDoc(doc(db,"users",name)); toast(`'${name}' 삭제됨`); }
-  catch(e){ console.error(e); toast('삭제 실패'); }
+  usersList = usersList.filter(u=>u.name!==name); saveUsers(); toast(`'${name}' 삭제됨`);
 }
 async function adminDeleteAllData(){
   if(!confirm('모든 거래 내역을 삭제할까요? 되돌릴 수 없습니다.')) return;
   if(!confirm('정말 전체 삭제하시겠어요? (마지막 확인)')) return;
-  try{
-    const snap = await getDocs(recCol);
-    const docs = snap.docs; let n=0;
-    for(let s=0;s<docs.length;s+=400){
-      const batch = writeBatch(db);
-      docs.slice(s,s+400).forEach(d=>batch.delete(d.ref));
-      await batch.commit(); n += Math.min(400, docs.length-s);
-    }
-    toast(`${n}건 전체 삭제됨`);
-  }catch(e){ console.error(e); toast('삭제 실패: '+(e.code||e.message)); }
+  const n = records.length;
+  records = []; persistRecords();
+  toast(`${n}건 전체 삭제됨`);
 }
 
 /* ===== 연락처 관리 ===== */
 let contacts = [];
 let editingContactId = null;
 
-function startContactsSync(){
-  onSnapshot(contactsCol, snap=>{
-    contacts = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    renderContacts();
-  }, err=>console.error('contacts onSnapshot', err));
-}
+function persistContacts(){ lsSet(LS_CON, contacts); renderContacts(); }
 
 // 이름 정규화 (괄호/밑줄 제거)
 function normName(s){ return String(s||'').replace(/[(（][^)）]*[)）]/g,'').replace(/_/g,' ').replace(/\s+/g,' ').trim(); }
@@ -1002,15 +970,18 @@ async function saveContact(){
   const btn = $('c-save'); btn.disabled=true;
   try{
     if(editingContactId){
-      await updateDoc(doc(db,"contacts",editingContactId), {name, phone, rel});
+      const c = contacts.find(x=>x.id===editingContactId);
+      if(c) Object.assign(c, {name, phone, rel});
+      persistContacts();
       toast('연락처 수정됨 ✅');
     }else{
-      await addDoc(contactsCol, {name, phone, rel, createdAt:serverTimestamp()});
+      contacts.push({id:genId(), name, phone, rel, createdAt:nowIso()});
+      persistContacts();
       toast('연락처 추가됨 ✅');
     }
     editingContactId=null; btn.textContent='＋ 연락처 추가';
     $('c-name').value=''; $('c-phone').value=''; $('c-rel').value='';
-  }catch(e){ console.error(e); toast('저장 실패: '+(e.code||e.message)); }
+  }catch(e){ console.error(e); toast('저장 실패: '+(e.name||e.message)); }
   finally{ btn.disabled=false; }
 }
 function editContact(id){
@@ -1024,8 +995,8 @@ function editContact(id){
 async function delContact(id){
   const c = contacts.find(x=>x.id===id);
   if(!confirm(`'${c?c.name:''}' 연락처를 삭제할까요?`)) return;
-  try{ await deleteDoc(doc(db,"contacts",id)); toast('삭제됨'); if(editingContactId===id){ editingContactId=null; $('c-save').textContent='＋ 연락처 추가'; $('c-name').value=''; $('c-phone').value=''; $('c-rel').value=''; } }
-  catch(e){ console.error(e); toast('삭제 실패'); }
+  contacts = contacts.filter(x=>x.id!==id); persistContacts(); toast('삭제됨');
+  if(editingContactId===id){ editingContactId=null; $('c-save').textContent='＋ 연락처 추가'; $('c-name').value=''; $('c-phone').value=''; $('c-rel').value=''; }
 }
 
 /* ===== 연락처 일괄 등록 ===== */
@@ -1091,14 +1062,10 @@ async function bulkAddContacts(items){
   const toAdd = items.filter(it=>{ const nm=(it.name||'').trim(); if(!nm) return false; if(existing.has(nm)||seen.has(nm)) return false; seen.add(nm); return true; });
   if(!toAdd.length){ toast('추가할 새 연락처가 없어요 (중복 제외)'); return; }
   try{
-    let n=0;
-    for(let s=0;s<toAdd.length;s+=400){
-      const batch = writeBatch(db);
-      toAdd.slice(s,s+400).forEach(it=>{ batch.set(doc(contactsCol), {name:it.name.trim(), phone:(it.phone||'').trim(), rel:(it.rel||'').trim(), createdAt:serverTimestamp()}); });
-      await batch.commit(); n += Math.min(400, toAdd.length-s);
-    }
-    toast(`${n}명 연락처 추가됨 🎉`);
-  }catch(e){ console.error(e); toast('일괄 등록 실패: '+(e.code||e.message)); }
+    toAdd.forEach(it=>contacts.push({id:genId(), name:it.name.trim(), phone:(it.phone||'').trim(), rel:(it.rel||'').trim(), createdAt:nowIso()}));
+    persistContacts();
+    toast(`${toAdd.length}명 연락처 추가됨 🎉`);
+  }catch(e){ console.error(e); toast('일괄 등록 실패: '+(e.name||e.message)); }
 }
 
 /* ===== 수정(편집) ===== */
@@ -1131,7 +1098,9 @@ async function saveEdit(){
   if(!amt || amt<=0){ toast('금액을 입력하세요'); return; }
   const btn = $('e-save'); btn.disabled=true;
   try{
-    await updateDoc(doc(db,"records",editingId), {
+    const r = records.find(x=>x.id===editingId);
+    if(!r){ toast('내역을 찾을 수 없어요'); return; }
+    Object.assign(r, {
       name,
       rel:  getRel('e'),
       cat:  $('e-cat').value,
@@ -1139,9 +1108,10 @@ async function saveEdit(){
       amount: amt,
       memo: $('e-memo').value.trim()
     });
+    persistRecords();
     toast('수정 완료 ✅');
     closeEdit();
-  }catch(e){ console.error(e); toast('수정 실패: '+(e.code||e.message)); }
+  }catch(e){ console.error(e); toast('수정 실패: '+(e.name||e.message)); }
   finally{ btn.disabled=false; }
 }
 
@@ -1338,7 +1308,7 @@ async function delCategory(c){
 }
 
 function exportData(){
-  const blob = new Blob([JSON.stringify({records,settings},null,2)],{type:'application/json'});
+  const blob = new Blob([JSON.stringify({records,settings,contacts},null,2)],{type:'application/json'});
   const url = URL.createObjectURL(blob); const a=document.createElement('a');
   a.href=url; a.download=`축의금관리_백업_${todayStr()}.json`; a.click();
   URL.revokeObjectURL(url); toast('백업 파일 저장됨 📤');
@@ -1656,7 +1626,7 @@ function renderKakaoPreview(skipped){
         <tbody id="kk-tbody">${rowsHtml}</tbody>
       </table>
     </div>
-    <button class="btn btn-primary" id="kk-save" style="margin-top:12px;">☁️ 선택한 항목 Firebase에 저장</button>
+    <button class="btn btn-primary" id="kk-save" style="margin-top:12px;">💾 선택한 항목 저장</button>
   `;
   kkType = 'all';
   $('kk-all').onchange = (e)=>{
@@ -1858,25 +1828,21 @@ async function saveKakao(){
       };
     }).filter(Boolean);
     if(!items.length){ toast('저장할 항목이 없습니다 (제외 목록 확인)'); btn.disabled=false; btn.textContent=orig; return; }
-    let saved=0;
-    for(let s=0;s<items.length;s+=400){
-      const batch = writeBatch(db);
-      const chunk = items.slice(s,s+400);
-      chunk.forEach(it=>{
-        batch.set(doc(recCol), {
-          type:it.type, name:it.name, rel:it.rel, cat:it.cat,
-          date:it.date, amount:it.amount, memo:it.memo,
-          enteredBy: myName||'미지정', repaid:false, createdAt:serverTimestamp()
-        });
+    items.forEach(it=>{
+      records.push({
+        id: genId(),
+        type:it.type, name:it.name, rel:it.rel, cat:it.cat,
+        date:it.date, amount:it.amount, memo:it.memo,
+        enteredBy: myName||'미지정', repaid:false, createdAt:nowIso()
       });
-      await batch.commit();
-      saved += chunk.length;
-    }
+    });
+    persistRecords();
+    const saved = items.length;
     kakaoRows=[];
     $('kakao-preview').innerHTML = `<div class="kk-done"><div class="em">✅</div><div style="font-weight:700;margin-top:6px;">${saved}건 저장 완료!</div><div class="muted" style="font-size:.8rem;margin-top:4px;">대시보드와 받음/보냄 목록에서 확인하세요.</div></div>`;
     toast(`${saved}건 등록 완료 🎉`);
   }catch(e){
-    console.error(e); toast('저장 실패: '+(e.code||e.message));
+    console.error(e); toast('저장 실패: '+(e.name||e.message));
     btn.disabled=false; btn.textContent=orig;
   }
 }
@@ -1971,25 +1937,17 @@ function initForms(){
   });
 }
 
-/* ===== Firestore 실시간 구독 ===== */
+/* ===== 로컬 데이터 불러오기 ===== */
 function startSync(){
-  onSnapshot(recCol, snap=>{
-    records = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    recordsReady = true; setConn('on'); renderAll();
-  }, err=>{
-    console.error('records onSnapshot error',err); setConn('off');
-    toast('데이터 로드 실패: '+err.code);
-  });
-  onSnapshot(settingsRef, snap=>{
-    if(snap.exists()){
-      const d = snap.data();
-      settings = { cats: (d.cats&&d.cats.length)?d.cats:DEFAULT_CATS.slice(), ratio: d.ratio||100 };
-    }else{
-      settings = { cats: DEFAULT_CATS.slice(), ratio: 100 };
-      setDoc(settingsRef, settings).catch(e=>console.error(e));
-    }
-    settingsReady = true; renderAll();
-  }, err=>{ console.error('settings onSnapshot error',err); });
+  try{
+    records = lsGet(LS_REC, []);
+    const d = lsGet(LS_SET, null);
+    settings = d ? { cats: (d.cats&&d.cats.length)?d.cats:DEFAULT_CATS.slice(), ratio: d.ratio||100 } : { cats: DEFAULT_CATS.slice(), ratio: 100 };
+    contacts = lsGet(LS_CON, []);
+    recordsReady = true; settingsReady = true; setConn('on');
+  }catch(e){
+    console.error('local load error', e); setConn('off'); toast('데이터 로드 실패');
+  }
 }
 
 /* ===== PWA (홈 화면 추가) ===== */
@@ -2073,8 +2031,6 @@ function setupPWA(){
 initForms();
 seedAdmin();
 startSync();
-startUsersSync();
-startContactsSync();
 setupPWA();
 // 세션 복원 (localStorage=상태유지 / sessionStorage=이번 세션만)
 let sess=null;
