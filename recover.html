@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>경조사 데이터 복구</title>
+<style>
+  body{font-family:-apple-system,"Malgun Gothic",sans-serif;background:#f4f5f7;color:#1f2430;margin:0;padding:20px;line-height:1.55;}
+  .box{max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  h1{font-size:1.15rem;margin:0 0 6px;} p{font-size:.88rem;color:#6b7280;margin:6px 0 14px;}
+  button{width:100%;padding:14px;border:none;border-radius:12px;font-size:1rem;font-weight:700;background:#4f46e5;color:#fff;cursor:pointer;margin-top:8px;}
+  button.ghost{background:#fff;color:#1f2430;border:1px solid #e5e7eb;} button:disabled{opacity:.5;}
+  #log{margin-top:14px;font-size:.86rem;white-space:pre-wrap;background:#f9fafb;border-radius:10px;padding:12px;min-height:40px;}
+  .ok{color:#059669;font-weight:700;} .err{color:#dc2626;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>📦 기존 데이터 복구</h1>
+  <p>예전 Firebase에 저장된 내역·연락처·설정을 <b>이 기기</b>로 가져옵니다. 이미 이 기기에 있는 데이터는 지우지 않고, 없는 항목만 추가합니다. 복구 후에는 이 파일을 지워도 됩니다.</p>
+  <button id="go">데이터 가져오기</button>
+  <button id="dl" class="ghost" disabled>가져온 데이터 JSON으로 저장</button>
+  <div id="log">대기 중…</div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyAjSSHqqX5Ac4HcV1ao4jiQWm0OYhpyVzY",
+  authDomain: "tndj-61fb0.firebaseapp.com",
+  projectId: "tndj-61fb0",
+  storageBucket: "tndj-61fb0.firebasestorage.app",
+  messagingSenderId: "1049136604795",
+  appId: "1:1049136604795:web:b1e79382b5908da823a4de",
+  measurementId: "G-CDWGMGSE44"
+});
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const log = (m, c) => { $('log').innerHTML += '\n' + (c ? `<span class="${c}">${m}</span>` : m); };
+const plain = d => { const o = {id:d.id, ...d.data()}; for(const k in o){ if(o[k] && typeof o[k].toDate==='function') o[k]=o[k].toDate().toISOString(); } return o; };
+const lsGet = (k,def) => { try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?def:v; }catch(e){ return def; } };
+let fetched = null;
+
+$('go').onclick = async () => {
+  $('go').disabled = true; $('log').textContent = '불러오는 중…';
+  try{
+    const [rs, cs, us, ss] = await Promise.all([
+      getDocs(collection(db,'records')), getDocs(collection(db,'contacts')),
+      getDocs(collection(db,'users')),   getDoc(doc(db,'settings','config'))
+    ]);
+    const records = rs.docs.map(plain), contacts = cs.docs.map(plain), users = us.docs.map(d=>({...plain(d)}));
+    const settings = ss.exists() ? ss.data() : null;
+    fetched = {records, contacts, users, settings};
+    log(`Firebase에서 읽음: 내역 ${records.length}건 · 연락처 ${contacts.length}명 · 사용자 ${users.length}명`);
+
+    const merge = (key, incoming, idOf) => {
+      const cur = lsGet(key, []); const have = new Set(cur.map(idOf)); let n = 0;
+      incoming.forEach(x => { if(!have.has(idOf(x))){ cur.push(x); n++; } });
+      localStorage.setItem(key, JSON.stringify(cur)); return n;
+    };
+    const nr = merge('gmm_records', records, x=>x.id);
+    const nc = merge('gmm_contacts', contacts, x=>x.id);
+    const nu = merge('gmm_users', users.map(u=>({name:u.name, pass:u.pass, role:u.role||'user', createdAt:u.createdAt||''})), x=>x.name);
+    if(settings && !localStorage.getItem('gmm_settings')) localStorage.setItem('gmm_settings', JSON.stringify({cats:settings.cats, ratio:settings.ratio||100}));
+    log(`이 기기에 추가됨: 내역 ${nr}건 · 연락처 ${nc}명 · 사용자 ${nu}명`, 'ok');
+    log('완료! 앱을 새로고침하면 보입니다.', 'ok');
+    $('dl').disabled = false;
+  }catch(e){
+    console.error(e);
+    log('실패: ' + (e.code || e.message), 'err');
+    if(String(e.code||e.message).includes('permission')) log('Firebase 보안 규칙이 읽기를 막고 있습니다. 콘솔 → Firestore → 규칙에서 읽기를 잠시 허용한 뒤 다시 시도하세요.');
+  }finally{ $('go').disabled = false; }
+};
+$('dl').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(fetched,null,2)],{type:'application/json'}));
+  a.download = 'firebase_복구데이터.json'; a.click();
+};
+</script>
+</body>
+</html>
